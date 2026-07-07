@@ -2,16 +2,21 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>スーパー・ボックス・ブラザーズ 3D</title>
 <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; }
+  * { margin:0; padding:0; box-sizing:border-box; -webkit-tap-highlight-color: transparent; user-select:none; -webkit-user-select:none; -webkit-touch-callout:none; }
   html, body {
+    position:fixed; inset:0;
     width:100%; height:100%; overflow:hidden;
     background:#000;
     font-family: 'Press Start 2P', monospace;
     overscroll-behavior: none;
+    touch-action:none;
   }
   #gameCanvas {
     display:block;
@@ -104,6 +109,7 @@
   <div>
     <div id="stageLabel">STAGE 1</div>
     <div class="stat">SCORE<br><span id="scoreVal">000000</span></div>
+    <div class="stat" id="statusVal" style="color:#FCD800;"></div>
   </div>
   <div>
     <div class="stat" style="text-align:right;"><span class="coin-icon">&#9673;</span> x <span id="coinVal">00</span></div>
@@ -126,13 +132,26 @@
 
 <div id="overlay">
   <h1>SUPER<br>BOX BROTHERS 3D</h1>
-  <p>コインを集めてゴールの旗を目指せ！<br>敵をふんで倒そう。穴に落ちたり敵に当たるとライフが減るよ。</p>
+  <p>コインを集めてゴールの旗を目指せ！<br>敵をふんで倒そう。穴に落ちたり敵に当たるとライフが減るよ。<br>キノコで大きくなる、1UPキノコでライフ+1、スターで無敵に！</p>
   <button id="startBtn">スタート</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 (function(){
+  // ============ LOCK SCREEN (prevent scroll / zoom / gestures) ============
+  document.addEventListener('touchmove', function(e){ e.preventDefault(); }, {passive:false});
+  document.addEventListener('gesturestart', function(e){ e.preventDefault(); });
+  document.addEventListener('gesturechange', function(e){ e.preventDefault(); });
+  document.addEventListener('contextmenu', function(e){ e.preventDefault(); });
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', function(e){
+    const now = Date.now();
+    if(now - lastTouchEnd <= 300) e.preventDefault();
+    lastTouchEnd = now;
+  }, {passive:false});
+  window.addEventListener('scroll', ()=>{ window.scrollTo(0,0); });
+
   // ============ RETRO PALETTE / THEMES ============
   const STAGE_THEMES = [
     { name:'グラスランド', sky:0x5C94FC, ground:0x00A800, groundSide:0x784800, block:0xFCBC00, blockDark:0xC87800, stars:false, lava:false },
@@ -159,7 +178,13 @@
     playerBrown: 0x904818,
     enemyBody: 0x904818,
     enemyDark: 0x582808,
-    enemyFoot: 0x402008
+    enemyFoot: 0x402008,
+    mushroomCap: 0xE40000,
+    mushroomSpot: 0xFCFCFC,
+    mushroomStem: 0xFCD8A0,
+    oneUpCap: 0x00A800,
+    starCore: 0xFCD800,
+    starGlow: 0xFCE870
   };
 
   // ============ RENDERER / SCENE / CAMERA ============
@@ -241,6 +266,7 @@
   let platforms = [];
   let coins = [];
   let enemies = [];
+  let items = [];
   let platformMeshes = [];
   let goalPos = null;
   let poleGroup = null;
@@ -250,8 +276,9 @@
     platformMeshes.forEach(m=>scene.remove(m));
     coins.forEach(c=>scene.remove(c.mesh));
     enemies.forEach(e=>scene.remove(e.mesh));
+    items.forEach(it=>scene.remove(it.mesh));
     if(poleGroup) scene.remove(poleGroup);
-    platforms = []; coins = []; enemies = []; platformMeshes = [];
+    platforms = []; coins = []; enemies = []; items = []; platformMeshes = [];
   }
 
   function addPlatform(x,y,z,w,h,d, colorTop, colorSide){
@@ -319,6 +346,44 @@
     });
   }
 
+  function makeMushroomMesh(capColor){
+    const g = new THREE.Group();
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.24,0.28,0.4,8), mat(PALETTE.mushroomStem));
+    stem.position.y = 0.2;
+    g.add(stem);
+    const cap = new THREE.Mesh(new THREE.SphereGeometry(0.42,10,8,0,Math.PI*2,0,Math.PI/1.8), mat(capColor));
+    cap.position.y = 0.42;
+    g.add(cap);
+    const spotGeo = new THREE.SphereGeometry(0.08,6,5);
+    const spotMat = mat(PALETTE.mushroomSpot);
+    const spotPositions = [[0,0.62,0.32],[0.28,0.58,-0.1],[-0.28,0.58,-0.1]];
+    spotPositions.forEach(p=>{
+      const s = new THREE.Mesh(spotGeo, spotMat);
+      s.position.set(p[0],p[1],p[2]);
+      g.add(s);
+    });
+    return g;
+  }
+
+  function makeStarMesh(){
+    const g = new THREE.Group();
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42,0), mat(PALETTE.starCore));
+    g.add(core);
+    const glow = new THREE.Mesh(new THREE.IcosahedronGeometry(0.55,0), new THREE.MeshBasicMaterial({ color: PALETTE.starGlow, wireframe:true, transparent:true, opacity:0.5 }));
+    g.add(glow);
+    return g;
+  }
+
+  function addItem(type, x, y, z){
+    let mesh;
+    if(type === 'mushroom') mesh = makeMushroomMesh(PALETTE.mushroomCap);
+    else if(type === 'oneup') mesh = makeMushroomMesh(PALETTE.oneUpCap);
+    else mesh = makeStarMesh();
+    mesh.position.set(x,y,z);
+    scene.add(mesh);
+    items.push({ mesh:mesh, type:type, collected:false, baseY:y, phase: Math.random()*Math.PI*2 });
+  }
+
   function applyTheme(theme){
     scene.fog.color.setHex(theme.sky);
     renderer.setClearColor(theme.sky);
@@ -358,6 +423,14 @@
       if(i > 1 && w >= 4.2 && Math.random() < diff.enemyChance){
         const margin = w/2 - 0.8;
         addEnemy(curX, curY+0.5, curZ, 'x', curX-margin, curX+margin);
+      }
+      // power-up items: mushroom (common-ish), star (rare), 1-up (rarest)
+      if(i > 0 && Math.random() < 0.16){
+        addItem('mushroom', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
+      } else if(i > 2 && Math.random() < 0.07){
+        addItem('star', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
+      } else if(i > 2 && Math.random() < 0.045){
+        addItem('oneup', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
       }
     }
 
@@ -407,6 +480,8 @@
   legR.position.x = 0.2;
   player.add(legR);
   scene.add(player);
+  const starColorParts = [body, chest, head, cap, capBrim, armL, armR, legL, legR];
+  const starOriginalColors = starColorParts.map(p => p.material.color.getHex());
 
   // ============ PHYSICS / GAME STATE ============
   const GRAVITY = -0.028;
@@ -424,7 +499,9 @@
     lastCheckpoint: new THREE.Vector3(0,1,6),
     stageIndex: 0,
     running: false,
-    invuln: 0
+    invuln: 0,
+    big: false,
+    starTimer: 0
   };
 
   // ============ KEYBOARD INPUT ============
@@ -533,6 +610,7 @@
   const coinVal = document.getElementById('coinVal');
   const lifeVal = document.getElementById('lifeVal');
   const stageLabel = document.getElementById('stageLabel');
+  const statusVal = document.getElementById('statusVal');
   const hud = document.getElementById('hud');
   const controlsHint = document.getElementById('controls-hint');
   const overlay = document.getElementById('overlay');
@@ -593,6 +671,9 @@
     state.coins = 0;
     state.lives = 3;
     state.invuln = 0;
+    state.big = false;
+    state.starTimer = 0;
+    player.scale.set(1,1,1);
     loadStage(0);
   }
 
@@ -623,6 +704,10 @@
 
   function loseLife(){
     state.lives -= 1;
+    state.big = false;
+    state.starTimer = 0;
+    player.scale.set(1,1,1);
+    starColorParts.forEach((p,i)=>{ p.material.color.setHex(starOriginalColors[i]); });
     flashScreen();
     playHurtSound();
     if(state.lives <= 0){
@@ -740,6 +825,22 @@
 
     if(state.invuln > 0) state.invuln--;
 
+    if(state.starTimer > 0){
+      state.starTimer--;
+      const hue = (performance.now()*0.002) % 1;
+      starColorParts.forEach((p,i)=>{
+        p.material.color.setHSL((hue + i*0.06) % 1, 0.85, 0.6);
+      });
+      if(state.starTimer === 0){
+        starColorParts.forEach((p,i)=>{ p.material.color.setHex(starOriginalColors[i]); });
+      }
+    }
+    if(statusVal){
+      if(state.starTimer > 0) statusVal.textContent = '★ STAR ' + Math.ceil(state.starTimer/60) + 's';
+      else if(state.big) statusVal.textContent = '● BIG';
+      else statusVal.textContent = '';
+    }
+
     // ---- update player mesh ----
     player.position.copy(state.pos);
     player.rotation.y = THREE.MathUtils.lerp(player.rotation.y, state.facing, 0.25);
@@ -786,8 +887,14 @@
       const dy = (p.y+0.5) - (state.pos.y+0.6);
       if(Math.abs(dx) < 0.65 && Math.abs(dz) < 0.65 && Math.abs(dy) < 0.75 && state.invuln === 0){
         const playerBottom = state.pos.y;
-        const enemyTop = p.y + 0.85;
-        if(state.vel.y < 0 && playerBottom > p.y + 0.25){
+        if(state.starTimer > 0){
+          // invincible star: defeat enemy on any contact
+          en.alive = false;
+          en.mesh.visible = false;
+          state.score += 200;
+          updateHud();
+          playStompSound();
+        } else if(state.vel.y < 0 && playerBottom > p.y + 0.25){
           // stomp
           en.alive = false;
           en.mesh.visible = false;
@@ -795,12 +902,48 @@
           state.score += 200;
           updateHud();
           playStompSound();
+        } else if(state.big){
+          // shrink instead of losing a life
+          state.big = false;
+          player.scale.set(1,1,1);
+          state.invuln = 90;
+          flashScreen();
+          playHurtSound();
         } else {
           // hurt
           state.invuln = 70;
           loseLife();
           return;
         }
+      }
+    }
+
+    // ---- items ----
+    for(const it of items){
+      if(it.collected) continue;
+      it.mesh.rotation.y += 0.06;
+      it.mesh.position.y = it.baseY + Math.sin(performance.now()*0.003 + it.phase)*0.15;
+      const dx = it.mesh.position.x - state.pos.x;
+      const dy = it.baseY - (state.pos.y+0.7);
+      const dz = it.mesh.position.z - state.pos.z;
+      if(Math.abs(dx) < 0.75 && Math.abs(dy) < 0.9 && Math.abs(dz) < 0.75){
+        it.collected = true;
+        it.mesh.visible = false;
+        if(it.type === 'mushroom'){
+          if(!state.big){
+            state.big = true;
+            player.scale.set(1.3,1.3,1.3);
+          }
+          state.score += 200;
+        } else if(it.type === 'oneup'){
+          state.lives += 1;
+          state.score += 500;
+        } else if(it.type === 'star'){
+          state.starTimer = 600;
+          state.score += 200;
+        }
+        updateHud();
+        playCoinSound();
       }
     }
 
