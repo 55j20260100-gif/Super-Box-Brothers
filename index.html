@@ -506,8 +506,15 @@
 
   // ============ KEYBOARD INPUT ============
   const keys = {};
-  window.addEventListener('keydown', e => { keys[e.code] = true; });
-  window.addEventListener('keyup', e => { keys[e.code] = false; });
+  const GAME_KEYS = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD'];
+  window.addEventListener('keydown', e => {
+    keys[e.code] = true;
+    if(GAME_KEYS.includes(e.code)){ e.preventDefault(); }
+  }, {passive:false});
+  window.addEventListener('keyup', e => {
+    keys[e.code] = false;
+    if(GAME_KEYS.includes(e.code)){ e.preventDefault(); }
+  }, {passive:false});
   function isDown(...codes){ return codes.some(c=>keys[c]); }
 
   // ============ FREE CAMERA (pointer drag / touch) ============
@@ -553,8 +560,9 @@
   window.addEventListener('pointerup', onCamPointerUp);
   window.addEventListener('pointercancel', onCamPointerUp);
   window.addEventListener('wheel', e=>{
+    e.preventDefault();
     camState.radius = Math.max(4, Math.min(16, camState.radius + e.deltaY*0.01));
-  }, {passive:true});
+  }, {passive:false});
 
   // ============ TOUCH CONTROLS (joystick + jump) ============
   const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
@@ -648,7 +656,7 @@
   function showOverlay(html, buttonId, buttonLabel, onClick){
     overlay.innerHTML = html + `<button id="${buttonId}">${buttonLabel}</button>`;
     overlay.style.display = 'flex';
-    document.getElementById(buttonId).addEventListener('click', onClick);
+    document.getElementById(buttonId).addEventListener('click', (e)=>{ e.target.blur(); onClick(); });
   }
 
   function resetPlayerToCheckpoint(){
@@ -685,7 +693,7 @@
     state.running = true;
   }
 
-  document.getElementById('startBtn').addEventListener('click', startGame);
+  document.getElementById('startBtn').addEventListener('click', (e)=>{ e.target.blur(); startGame(); });
 
   function flashScreen(){
     fadeFlash.style.transition = 'none';
