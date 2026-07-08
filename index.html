@@ -103,6 +103,17 @@
     pointer-events:auto; touch-action:none; text-shadow:2px 2px 0 #000;
   }
   #jumpBtn:active { background:rgba(228,0,0,0.75); }
+  #fireBtn {
+    position:absolute;
+    right: calc(env(safe-area-inset-right, 0px) + clamp(90px, 24vmin, 130px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(18px, 5vh, 40px));
+    width:clamp(56px, 16vmin, 78px); height:clamp(56px, 16vmin, 78px); border-radius:50%;
+    background:rgba(248,56,0,0.45); border:3px solid rgba(255,255,255,0.7);
+    color:#fff; font-size:clamp(8px, 2.2vmin, 11px); display:flex; align-items:center; justify-content:center;
+    pointer-events:auto; touch-action:none; text-shadow:2px 2px 0 #000;
+    opacity:0.35; transition:opacity 0.2s;
+  }
+  #fireBtn:active { background:rgba(248,56,0,0.75); }
   #camHint {
     position:absolute; top: calc(env(safe-area-inset-top, 0px) + 16px); left:50%; transform:translateX(-50%);
     font-size:8px; color:rgba(255,255,255,0.7); text-shadow:2px 2px 0 #000;
@@ -112,6 +123,7 @@
   @media (max-height: 420px) {
     #joystickBase { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); left: calc(env(safe-area-inset-left, 0px) + 8px); }
     #jumpBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 12px); }
+    #fireBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); }
   }
 
   #pauseBtn {
@@ -182,12 +194,13 @@
 <button id="pauseBtn" aria-label="ポーズ">&#10074;&#10074;</button>
 
 <div id="controls-hint" style="display:none;">
-  &#8592; &#8594; &#8593; &#8595; / WASD : 移動　　SPACE : ジャンプ　　ドラッグ : カメラ回転　　ESC/P : ポーズ
+  &#8592; &#8594; &#8593; &#8595; / WASD : 移動　　SPACE : ジャンプ　　F : ファイア　　ドラッグ : カメラ回転　　ESC/P : ポーズ
 </div>
 
 <div id="touchControls">
   <div id="camHint">画面右側をドラッグしてカメラ回転</div>
   <div id="joystickBase"><div id="joystickStick"></div></div>
+  <div id="fireBtn">FIRE</div>
   <div id="jumpBtn">JUMP</div>
 </div>
 
@@ -251,7 +264,11 @@
     brick: 0xC84C0C,
     brickDark: 0x702000,
     question: 0xFCBC00,
-    emptyBlock: 0x787878
+    emptyBlock: 0x787878,
+    fireFlowerStem: 0x00A800,
+    fireFlowerCenter: 0xFCD800,
+    fireFlowerPetal: 0xF83800,
+    fireballColor: 0xFF6000
   };
 
   // ============ RENDERER / SCENE / CAMERA ============
@@ -308,6 +325,7 @@
   let items = [];
   let platformMeshes = [];
   let blocks = []; // New array for interactive blocks
+  let fireballs = []; // Player-shot fireballs
   let goalPos = null;
   let poleGroup = null;
   let levelStartZ = 6;
@@ -318,8 +336,9 @@
     enemies.forEach(e=>scene.remove(e.mesh));
     items.forEach(it=>scene.remove(it.mesh));
     blocks.forEach(b=>scene.remove(b.mesh));
+    fireballs.forEach(f=>scene.remove(f.mesh));
     if(poleGroup) scene.remove(poleGroup);
-    platforms = []; coins = []; enemies = []; items = []; platformMeshes = []; blocks = [];
+    platforms = []; coins = []; enemies = []; items = []; platformMeshes = []; blocks = []; fireballs = [];
   }
 
   function addPlatform(x,y,z,w,h,d, colorTop, colorSide){
@@ -343,6 +362,17 @@
     return plat;
   }
 
+  // decides what a question block will contain, weighted toward common items
+  function pickBlockItem(){
+    const r = Math.random();
+    if(r < 0.55) return 'coin';
+    if(r < 0.70) return 'mushroom';
+    if(r < 0.80) return 'fireflower';
+    if(r < 0.90) return 'star';
+    if(r < 0.96) return 'shell';
+    return 'oneup';
+  }
+
   function addBlock(x,y,z, type){
     const geo = new THREE.BoxGeometry(1,1,1);
     let color;
@@ -358,6 +388,7 @@
     const block = {
       mesh: mesh,
       type: type,
+      itemType: (type === 'question' || type === 'hidden') ? pickBlockItem() : null,
       baseY: y,
       hitTimer: 0,
       active: true,
@@ -511,15 +542,64 @@
     return g;
   }
 
+  function makeFireFlowerMesh(){
+    const g = new THREE.Group();
+    const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.14,0.5,6), mat(PALETTE.fireFlowerStem));
+    stem.position.y = 0.25;
+    g.add(stem);
+    const center = new THREE.Mesh(new THREE.SphereGeometry(0.24,8,6), mat(PALETTE.fireFlowerCenter));
+    center.position.y = 0.58;
+    g.add(center);
+    const petalGeo = new THREE.SphereGeometry(0.18,6,5);
+    const petalMat = mat(PALETTE.fireFlowerPetal);
+    const petalOffsets = [[0.26,0.58,0],[-0.26,0.58,0],[0,0.58,0.26],[0,0.58,-0.26]];
+    petalOffsets.forEach(p=>{
+      const petal = new THREE.Mesh(petalGeo, petalMat);
+      petal.position.set(p[0],p[1],p[2]);
+      g.add(petal);
+    });
+    return g;
+  }
+
   function addItem(type, x, y, z){
     let mesh;
     if(type === 'mushroom') mesh = makeMushroomMesh(PALETTE.mushroomCap);
     else if(type === 'oneup') mesh = makeMushroomMesh(PALETTE.oneUpCap);
     else if(type === 'shell') mesh = makeShellItemMesh();
+    else if(type === 'fireflower') mesh = makeFireFlowerMesh();
     else mesh = makeStarMesh();
     mesh.position.set(x,y,z);
     scene.add(mesh);
     items.push({ mesh:mesh, type:type, collected:false, baseY:y, phase: Math.random()*Math.PI*2 });
+  }
+
+  // dispenses whatever a question block contains: coin, or a real collectible item that pops out
+  function dispenseBlockItem(block){
+    const type = block.itemType || 'coin';
+    const pos = block.mesh.position;
+    if(type === 'coin'){
+      state.coins += 1;
+      state.score += 100;
+      playCoinSound();
+      const vCoin = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.1,10), mat(PALETTE.coin));
+      vCoin.rotation.x = Math.PI/2;
+      vCoin.position.copy(pos);
+      scene.add(vCoin);
+      let vTimer = 0;
+      const animCoin = ()=>{
+        vTimer++;
+        vCoin.position.y += 0.15 - vTimer*0.01;
+        vCoin.rotation.y += 0.2;
+        if(vTimer < 30) requestAnimationFrame(animCoin);
+        else scene.remove(vCoin);
+      };
+      animCoin();
+    } else {
+      addItem(type, pos.x, pos.y + 1.0, pos.z);
+      state.score += 50;
+      playCoinSound();
+    }
+    updateHud();
   }
 
   function applyTheme(theme){
@@ -634,7 +714,24 @@
   player.add(legR);
   scene.add(player);
   const starColorParts = [body, chest, head, cap, capBrim, armL, armR, legL, legR];
-  const starOriginalColors = starColorParts.map(p => p.material.color.getHex());
+  let starOriginalColors = starColorParts.map(p => p.material.color.getHex());
+
+  // recolors the player based on power state (normal vs fire), and refreshes the
+  // "original color" snapshot used to restore colors after the star effect ends
+  function applyPlayerAppearance(){
+    if(state.fire){
+      body.material.color.setHex(0xFCFCFC);
+      chest.material.color.setHex(PALETTE.fireFlowerPetal);
+      cap.material.color.setHex(PALETTE.fireFlowerPetal);
+      capBrim.material.color.setHex(PALETTE.fireFlowerPetal);
+    } else {
+      body.material.color.setHex(PALETTE.playerBlue);
+      chest.material.color.setHex(PALETTE.playerRed);
+      cap.material.color.setHex(PALETTE.playerRed);
+      capBrim.material.color.setHex(PALETTE.playerRed);
+    }
+    starOriginalColors = starColorParts.map(p => p.material.color.getHex());
+  }
 
   // ============ PHYSICS / GAME STATE ============
   const GRAVITY = -0.028;
@@ -657,13 +754,14 @@
     paused: false,
     invuln: 0,
     big: false,
+    fire: false,
     starTimer: 0,
     shellShield: false
   };
 
   // ============ KEYBOARD INPUT ============
   const keys = {};
-  const GAME_KEYS = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD'];
+  const GAME_KEYS = ['Space','ArrowUp','ArrowDown','ArrowLeft','ArrowRight','KeyW','KeyA','KeyS','KeyD','KeyF'];
   window.addEventListener('keydown', e => {
     keys[e.code] = true;
     if(GAME_KEYS.includes(e.code)){ e.preventDefault(); }
@@ -721,12 +819,13 @@
     camState.radius = Math.max(4, Math.min(16, camState.radius + e.deltaY*0.01));
   }, {passive:false});
 
-  // ============ TOUCH CONTROLS (joystick + jump) ============
+  // ============ TOUCH CONTROLS (joystick + jump + fire) ============
   const isTouchDevice = ('ontouchstart' in window) || navigator.maxTouchPoints > 0;
   const touchControls = document.getElementById('touchControls');
   const joystickBase = document.getElementById('joystickBase');
   const joystickStick = document.getElementById('joystickStick');
   const jumpBtn = document.getElementById('jumpBtn');
+  const fireBtn = document.getElementById('fireBtn');
   if(isTouchDevice){ touchControls.style.display = 'block'; }
 
   const joystick = { active:false, id:null, x:0, y:0 };
@@ -770,6 +869,12 @@
   jumpBtn.addEventListener('pointercancel', e=>{ e.stopPropagation(); touchJump = false; });
   jumpBtn.addEventListener('pointerleave', e=>{ touchJump = false; });
 
+  let touchFire = false;
+  fireBtn.addEventListener('pointerdown', e=>{ e.stopPropagation(); touchFire = true; fireBtn.setPointerCapture(e.pointerId); });
+  fireBtn.addEventListener('pointerup', e=>{ e.stopPropagation(); touchFire = false; });
+  fireBtn.addEventListener('pointercancel', e=>{ e.stopPropagation(); touchFire = false; });
+  fireBtn.addEventListener('pointerleave', e=>{ touchFire = false; });
+
   // ============ HUD ============
   const scoreVal = document.getElementById('scoreVal');
   const coinVal = document.getElementById('coinVal');
@@ -809,10 +914,11 @@
   const playJumpSound = ()=>beep(320,650,0.18,0.06);
   const playStompSound = ()=>beep(200,80,0.2,0.09);
   const playHurtSound = ()=>beep(150,60,0.3,0.09);
+  const playFireSound = ()=>beep(700,300,0.12,0.07);
 
   // ============ GAME FLOW ============
   const TITLE_HTML = `<h1>SUPER<br>BOX BROTHERS 3D</h1>
-    <p>コインを集めてゴールの旗を目指せ！<br>敵をふんで倒そう。穴に落ちたり敵に当たるとライフが減るよ。<br>キノコで大きくなる、1UPキノコでライフ+1、スターで無敵に！<br>甲羅アイテムで1回だけ攻撃をブロック。歩く亀は踏むと甲羅になり、蹴って攻撃にも使える！</p>`;
+    <p>コインを集めてゴールの旗を目指せ！<br>敵をふんで倒そう。穴に落ちたり敵に当たるとライフが減るよ。<br>キノコで大きくなる、1UPキノコでライフ+1、スターで無敵に！<br>甲羅アイテムで1回だけ攻撃をブロック。歩く亀を踏むと甲羅になって転がるよ。<br>転がる甲羅がはてなブロックに当たるとレンガブロックに変わる。<br>ファイアーフラワーを取るとファイアマリオに！Fキー/FIREボタンでファイアボール発射！</p>`;
 
   // Generic menu renderer: shows arbitrary HTML plus a stack of buttons.
   // buttons: [{ label, className (optional), onClick }]
@@ -862,9 +968,11 @@
     state.lives = 3;
     state.invuln = 0;
     state.big = false;
+    state.fire = false;
     state.starTimer = 0;
     state.shellShield = false;
     player.scale.set(1,1,1);
+    applyPlayerAppearance();
     loadStage(0);
   }
 
@@ -893,29 +1001,23 @@
     if(block.type === 'question'){
       block.active = false;
       block.mesh.material.color.setHex(PALETTE.emptyBlock);
-      state.coins += 1;
-      state.score += 100;
-      updateHud();
-      playCoinSound();
-      
-      // Visual coin pop effect
-      const vCoin = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.1,10), mat(PALETTE.coin));
-      vCoin.rotation.x = Math.PI/2;
-      vCoin.position.copy(block.mesh.position);
-      scene.add(vCoin);
-      let vTimer = 0;
-      const animCoin = ()=>{
-        vTimer++;
-        vCoin.position.y += 0.15 - vTimer*0.01;
-        vCoin.rotation.y += 0.2;
-        if(vTimer < 30) requestAnimationFrame(animCoin);
-        else scene.remove(vCoin);
-      };
-      animCoin();
+      dispenseBlockItem(block);
     } else if(block.type === 'brick'){
       // Bricks are now unbreakable as per user request
       playStompSound();
     }
+  }
+
+  // a rolling shell smashing into a question block knocks it into a plain brick block
+  function shellHitBlock(block){
+    if(block.type !== 'question') return;
+    block.hitTimer = 10;
+    if(block.active){
+      block.active = false;
+      dispenseBlockItem(block);
+    }
+    block.type = 'brick';
+    block.mesh.material.color.setHex(PALETTE.brick);
   }
 
   function showTitleScreen(){
@@ -993,8 +1095,10 @@
   function loseLife(){
     state.lives -= 1;
     state.big = false;
+    state.fire = false;
     state.starTimer = 0;
     player.scale.set(1,1,1);
+    applyPlayerAppearance();
     starColorParts.forEach((p,i)=>{ p.material.color.setHex(starOriginalColors[i]); });
     flashScreen();
     playHurtSound();
@@ -1041,8 +1145,18 @@
     }
   }
 
+  function spawnFireball(){
+    const dirX = Math.sin(state.facing), dirZ = Math.cos(state.facing);
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.22,8,6), new THREE.MeshBasicMaterial({ color: PALETTE.fireballColor }));
+    mesh.position.set(state.pos.x + dirX*0.6, state.pos.y + 0.9, state.pos.z + dirZ*0.6);
+    scene.add(mesh);
+    fireballs.push({ mesh:mesh, vx:dirX*0.28, vz:dirZ*0.28, vy:0.04, life:150, bounces:0 });
+    playFireSound();
+  }
+
   // ============ MAIN LOOP ============
   let jumpHeld = false;
+  let fireHeld = false;
   let bobPhase = 0;
   let lastCheckpointZ = 6;
 
@@ -1116,6 +1230,15 @@
       playJumpSound();
     }
 
+    // ---- fire (shoot a fireball while in fire form) ----
+    const firePressed = isDown('KeyF') || touchFire;
+    const fireJustPressed = firePressed && !fireHeld;
+    fireHeld = firePressed;
+    if(fireJustPressed && state.fire && fireballs.length < 4){
+      spawnFireball();
+    }
+    if(fireBtn) fireBtn.style.opacity = state.fire ? '1' : '0.35';
+
     // ---- gravity ----
     state.vel.y += GRAVITY;
     state.pos.y += state.vel.y;
@@ -1179,6 +1302,7 @@
     }
     if(statusVal){
       if(state.starTimer > 0) statusVal.textContent = '★ STAR ' + Math.ceil(state.starTimer/60) + 's';
+      else if(state.fire) statusVal.textContent = '🔥 FIRE';
       else if(state.shellShield && state.big) statusVal.textContent = '● BIG 🛡';
       else if(state.shellShield) statusVal.textContent = '🛡 SHELL';
       else if(state.big) statusVal.textContent = '● BIG';
@@ -1231,6 +1355,15 @@
         }
         en.slideTimer--;
         if(en.slideTimer <= 0) en.turtleState = 'idle';
+        // a rolling shell smashes any question block it barrels into
+        for(const b of blocks){
+          if(b.type === 'question' &&
+             Math.abs(p.x - b.mesh.position.x) < 0.9 &&
+             Math.abs(p.z - b.mesh.position.z) < 0.9 &&
+             Math.abs((p.y+0.4) - b.mesh.position.y) < 0.9){
+            shellHitBlock(b);
+          }
+        }
       } else {
         if(en.axis === 'x'){
           p.x += en.dir * en.speed;
@@ -1257,9 +1390,11 @@
           updateHud();
           playStompSound();
         } else if(en.kind === 'turtle' && en.turtleState === 'walk' && isStomp){
-          // stomp a walking turtle: it retracts into its shell
-          en.turtleState = 'idle';
+          // stomp a walking turtle: it retracts into its shell and immediately rolls away
+          en.turtleState = 'sliding';
           setTurtleWalking(en.mesh, false);
+          en.slideTimer = SHELL_SLIDE_FRAMES;
+          en.dir = (en.axis === 'x') ? Math.sign(dx || 1) : Math.sign(dz || 1);
           state.vel.y = STOMP_BOUNCE;
           state.score += 200;
           updateHud();
@@ -1295,6 +1430,13 @@
           state.score += 200;
           updateHud();
           playStompSound();
+        } else if(state.fire){
+          // lose fire power only, stay big
+          state.fire = false;
+          applyPlayerAppearance();
+          state.invuln = 90;
+          flashScreen();
+          playHurtSound();
         } else if(state.big){
           // shrink instead of losing a life
           state.big = false;
@@ -1344,9 +1486,55 @@
         } else if(it.type === 'shell'){
           state.shellShield = true;
           state.score += 250;
+        } else if(it.type === 'fireflower'){
+          if(!state.big){
+            state.big = true;
+            player.scale.set(1.3,1.3,1.3);
+          }
+          state.fire = true;
+          applyPlayerAppearance();
+          state.score += 300;
         }
         updateHud();
         playCoinSound();
+      }
+    }
+
+    // ---- fireballs ----
+    for(let i = fireballs.length - 1; i >= 0; i--){
+      const f = fireballs[i];
+      f.vy += GRAVITY * 0.6;
+      f.mesh.position.x += f.vx;
+      f.mesh.position.z += f.vz;
+      f.mesh.position.y += f.vy;
+      f.mesh.rotation.x += 0.3;
+      f.mesh.rotation.z += 0.2;
+      const fsupport = findSupport(f.mesh.position.x, f.mesh.position.y, f.mesh.position.z);
+      if(fsupport !== null && f.mesh.position.y <= fsupport + 0.22 && f.vy < 0){
+        f.mesh.position.y = fsupport + 0.22;
+        f.vy = 0.16;
+        f.bounces++;
+      }
+      f.life--;
+      let hitEnemy = false;
+      for(const en of enemies){
+        if(!en.alive) continue;
+        const dx = en.mesh.position.x - f.mesh.position.x;
+        const dz = en.mesh.position.z - f.mesh.position.z;
+        const dy = (en.mesh.position.y+0.4) - f.mesh.position.y;
+        if(Math.abs(dx) < 0.6 && Math.abs(dz) < 0.6 && Math.abs(dy) < 0.7){
+          en.alive = false;
+          en.mesh.visible = false;
+          state.score += 150;
+          updateHud();
+          playStompSound();
+          hitEnemy = true;
+          break;
+        }
+      }
+      if(hitEnemy || f.life <= 0 || f.mesh.position.y < -14 || f.bounces > 3){
+        scene.remove(f.mesh);
+        fireballs.splice(i,1);
       }
     }
 
