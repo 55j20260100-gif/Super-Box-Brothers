@@ -234,10 +234,10 @@
     { name:'キャッスル', sky:0x100810, ground:0x585858, groundSide:0x282828, block:0xB03018, blockDark:0x781808, stars:false, lava:true }
   ];
   const STAGE_DIFFICULTY = [
-    { segCount:22, enemyChance:0.22, heightMin:-2, heightMax:8,  widthMin:4.5 },
-    { segCount:28, enemyChance:0.32, heightMin:-3, heightMax:9,  widthMin:4.0 },
-    { segCount:34, enemyChance:0.40, heightMin:-3, heightMax:11, widthMin:3.6 },
-    { segCount:40, enemyChance:0.48, heightMin:-4, heightMax:12, widthMin:3.2 }
+    { segCount:32, enemyChance:0.22, heightMin:-2, heightMax:8,  widthMin:4.5 },
+    { segCount:40, enemyChance:0.32, heightMin:-3, heightMax:9,  widthMin:4.0 },
+    { segCount:48, enemyChance:0.40, heightMin:-3, heightMax:11, widthMin:3.6 },
+    { segCount:56, enemyChance:0.48, heightMin:-4, heightMax:12, widthMin:3.2 }
   ];
   const TOTAL_STAGES = STAGE_THEMES.length;
 
@@ -478,6 +478,28 @@
 
   // decides which way a shell should roll: primarily the direction Mario is currently
   // moving (i.e. the direction of the stomp/kick), falling back to the way he's facing,
+  // Enemy death animation
+  function playEnemyDeathAnimation(enemy){
+    const startPos = enemy.mesh.position.clone();
+    let deathTimer = 0;
+    const deathDuration = 40;
+    
+    const deathLoop = () => {
+      deathTimer++;
+      if(deathTimer <= deathDuration){
+        // Flip upside down and fly away
+        enemy.mesh.rotation.x += 0.2;
+        enemy.mesh.position.y += 0.08;
+        enemy.mesh.position.z -= 0.15; // Move away from player
+        requestAnimationFrame(deathLoop);
+      } else {
+        enemy.alive = false;
+        enemy.mesh.visible = false;
+      }
+    };
+    deathLoop();
+  }
+
   // Calculate velocity vector for shell rolling in all directions
   function shellRollVelocity(dx, dz, mvX, mvZ){
     let velX = 0, velZ = 0;
@@ -992,6 +1014,8 @@
     jumpBufferTimer = 0;
     jumpHeld = false;
     touchJump = false;
+    // Reset player rotation to normal
+    player.rotation.set(0, 0, 0);
   }
 
   function loadStage(idx){
@@ -1014,6 +1038,7 @@
     state.starTimer = 0;
     state.shellShield = false;
     player.scale.set(1,1,1);
+    player.rotation.set(0, 0, 0);
     applyPlayerAppearance();
     loadStage(0);
   }
@@ -1135,7 +1160,9 @@
     setTimeout(()=>{ stageBanner.style.opacity = '0'; }, 1500);
   }
 
-  function loseLife(){
+  function loseLife(deathType){
+    deathType = deathType || 'fall';
+    state.running = false;
     state.lives -= 1;
     state.big = false;
     state.fire = false;
@@ -1145,23 +1172,70 @@
     starColorParts.forEach((p,i)=>{ p.material.color.setHex(starOriginalColors[i]); });
     flashScreen();
     playHurtSound();
-    if(state.lives <= 0){
-      state.running = false;
-      state.paused = false;
-      pauseBtnEl.style.display = 'none';
-      showMenu(
-        `<h2 style="color:#E40000;text-shadow:4px 4px 0 #5c0000;">GAME OVER</h2>
-         <p>スコア: ${String(state.score).padStart(6,'0')}<br>集めたコイン: ${state.coins}<br>到達ステージ: ${state.stageIndex+1}</p>`,
-        [
-          { label: 'もう一度あそぶ', onClick: startGame },
-          { label: 'メインメニューへ戻る', className:'tertiary', onClick: showTitleScreen }
-        ]
-      );
-      hud.style.display = 'none';
-      controlsHint.style.display = 'none';
+    
+    // Different death animations based on cause
+    if(deathType === 'enemy'){
+      // Enemy death: bounce up then fall
+      let bounceTimer = 0;
+      const bounceHeight = 1.5;
+      const bouncePhase1 = 15; // frames to reach peak
+      const bouncePhase2 = 30; // frames to fall
+      
+      const enemyDeathLoop = () => {
+        bounceTimer++;
+        if(bounceTimer <= bouncePhase1){
+          // Bounce up
+          const progress = bounceTimer / bouncePhase1;
+          player.position.y += 0.1;
+          player.rotation.z = 0;
+          requestAnimationFrame(enemyDeathLoop);
+        } else if(bounceTimer <= bouncePhase1 + bouncePhase2){
+          // Fall down and spin
+          player.position.y -= 0.12;
+          player.rotation.z += 0.12;
+          requestAnimationFrame(enemyDeathLoop);
+        } else {
+          // Animation complete
+          proceedAfterDeath();
+        }
+      };
+      enemyDeathLoop();
     } else {
-      resetPlayerToCheckpoint();
-      updateHud();
+      // Fall death: straight down with spin
+      let deathTimer = 0;
+      const deathDuration = 80;
+      const deathAnimationLoop = () => {
+        deathTimer++;
+        if(deathTimer <= deathDuration){
+          player.position.y -= 0.15;
+          player.rotation.z += 0.15;
+          requestAnimationFrame(deathAnimationLoop);
+        } else {
+          proceedAfterDeath();
+        }
+      };
+      deathAnimationLoop();
+    }
+    
+    function proceedAfterDeath(){
+      if(state.lives <= 0){
+        state.paused = false;
+        pauseBtnEl.style.display = 'none';
+        showMenu(
+          `<h2 style="color:#E40000;text-shadow:4px 4px 0 #5c0000;">GAME OVER</h2>
+           <p>スコア: ${String(state.score).padStart(6,'0')}<br>集めたコイン: ${state.coins}<br>到達ステージ: ${state.stageIndex+1}</p>`,
+          [
+            { label: 'もう一度あそぶ', onClick: startGame },
+            { label: 'メインメニューへ戻る', className:'tertiary', onClick: showTitleScreen }
+          ]
+        );
+        hud.style.display = 'none';
+        controlsHint.style.display = 'none';
+      } else {
+        resetPlayerToCheckpoint();
+        state.running = true;
+        updateHud();
+      }
     }
   }
 
@@ -1475,9 +1549,8 @@
         const isStomp = state.vel.y < 0 && playerBottom > p.y + 0.25;
 
         if(state.starTimer > 0){
-          // invincible star: defeat enemy on any contact
-          en.alive = false;
-          en.mesh.visible = false;
+          // invincible star: defeat enemy on any contact with death animation
+          playEnemyDeathAnimation(en);
           state.score += 200;
           updateHud();
           playStompSound();
@@ -1519,9 +1592,8 @@
           state.invuln = 30;
           playStompSound();
         } else if(en.kind === 'goomba' && isStomp){
-          // stomp
-          en.alive = false;
-          en.mesh.visible = false;
+          // stomp goomba with death animation
+          playEnemyDeathAnimation(en);
           state.vel.y = STOMP_BOUNCE;
           state.score += 200;
           updateHud();
@@ -1548,9 +1620,14 @@
           playHurtSound();
           updateHud();
         } else {
-          // hurt
+          // hurt from enemy - knockback effect
           state.invuln = 70;
-          loseLife();
+          // Knockback: push player away from enemy
+          const knockbackForce = 0.3;
+          state.vel.x = (state.pos.x - p.x > 0 ? 1 : -1) * knockbackForce;
+          state.vel.z = (state.pos.z - p.z > 0 ? 1 : -1) * knockbackForce;
+          state.vel.y = 0.4; // Small upward bounce
+          loseLife('enemy');
           return;
         }
       }
@@ -1564,7 +1641,9 @@
       const dx = it.mesh.position.x - state.pos.x;
       const dy = it.baseY - (state.pos.y+0.7);
       const dz = it.mesh.position.z - state.pos.z;
-      if(Math.abs(dx) < 0.75 && Math.abs(dy) < 0.9 && Math.abs(dz) < 0.75){
+      // Adjust collision radius based on player size
+      const collisionRadius = state.big ? 0.95 : 0.75;
+      if(Math.abs(dx) < collisionRadius && Math.abs(dy) < 1.1 && Math.abs(dz) < collisionRadius){
         it.collected = true;
         it.mesh.visible = false;
         if(it.type === 'mushroom'){
