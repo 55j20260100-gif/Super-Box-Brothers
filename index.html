@@ -94,22 +94,22 @@
     pointer-events:none;
   }
   #jumpBtn {
-    position:absolute;
-    right: calc(env(safe-area-inset-right, 0px) + clamp(18px, 5vw, 36px));
-    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(18px, 5vh, 40px));
-    width:clamp(68px, 20vmin, 96px); height:clamp(68px, 20vmin, 96px); border-radius:50%;
+    position:fixed;
+    right: calc(env(safe-area-inset-right, 0px) + clamp(12px, 3vw, 24px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(12px, 3vh, 28px));
+    width:clamp(60px, 18vmin, 88px); height:clamp(60px, 18vmin, 88px); border-radius:50%;
     background:rgba(228,0,0,0.45); border:3px solid rgba(255,255,255,0.7);
-    color:#fff; font-size:clamp(9px, 2.6vmin, 12px); display:flex; align-items:center; justify-content:center;
-    pointer-events:auto; touch-action:none; text-shadow:2px 2px 0 #000;
+    color:#fff; font-size:clamp(8px, 2.2vmin, 11px); display:flex; align-items:center; justify-content:center;
+    pointer-events:auto; touch-action:none; text-shadow:2px 2px 0 #000; z-index:13;
   }
   #jumpBtn:active { background:rgba(228,0,0,0.75); }
   #fireBtn {
-    position:absolute;
-    right: calc(env(safe-area-inset-right, 0px) + clamp(18px, 5vw, 36px));
-    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(18px, 5vh, 40px) + clamp(68px, 20vmin, 96px) + 16px);
-    width:clamp(56px, 16vmin, 78px); height:clamp(56px, 16vmin, 78px); border-radius:50%;
+    position:fixed;
+    right: calc(env(safe-area-inset-right, 0px) + clamp(12px, 3vw, 24px) + clamp(60px, 18vmin, 88px) + clamp(8px, 2vw, 16px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(12px, 3vh, 28px));
+    width:clamp(48px, 14vmin, 68px); height:clamp(48px, 14vmin, 68px); border-radius:50%;
     background:rgba(248,56,0,0.45); border:3px solid rgba(255,255,255,0.7);
-    color:#fff; font-size:clamp(8px, 2.2vmin, 11px); display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:clamp(7px, 1.8vmin, 10px); display:flex; align-items:center; justify-content:center;
     pointer-events:auto; touch-action:none; text-shadow:2px 2px 0 #000;
     opacity:0.35; transition:opacity 0.2s;
     z-index:13;
@@ -122,9 +122,9 @@
   }
   /* short/landscape phones: pull controls in closer so they stay reachable */
   @media (max-height: 420px) {
-    #joystickBase { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); left: calc(env(safe-area-inset-left, 0px) + 8px); }
-    #jumpBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 12px); }
-    #fireBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 12px + clamp(68px, 20vmin, 96px) + 12px); }
+    #joystickBase { bottom: calc(env(safe-area-inset-bottom, 0px) + 6px); left: calc(env(safe-area-inset-left, 0px) + 6px); }
+    #jumpBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 8px); width:clamp(50px, 14vmin, 70px); height:clamp(50px, 14vmin, 70px); }
+    #fireBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); right: calc(env(safe-area-inset-right, 0px) + 8px + clamp(50px, 14vmin, 70px) + 8px); width:clamp(40px, 12vmin, 58px); height:clamp(40px, 12vmin, 58px); }
   }
 
   #pauseBtn {
@@ -234,10 +234,10 @@
     { name:'キャッスル', sky:0x100810, ground:0x585858, groundSide:0x282828, block:0xB03018, blockDark:0x781808, stars:false, lava:true }
   ];
   const STAGE_DIFFICULTY = [
-    { segCount:14, enemyChance:0.22, heightMin:-2, heightMax:8,  widthMin:4.5 },
-    { segCount:18, enemyChance:0.32, heightMin:-3, heightMax:9,  widthMin:4.0 },
-    { segCount:22, enemyChance:0.40, heightMin:-3, heightMax:11, widthMin:3.6 },
-    { segCount:26, enemyChance:0.48, heightMin:-4, heightMax:12, widthMin:3.2 }
+    { segCount:22, enemyChance:0.22, heightMin:-2, heightMax:8,  widthMin:4.5 },
+    { segCount:28, enemyChance:0.32, heightMin:-3, heightMax:9,  widthMin:4.0 },
+    { segCount:34, enemyChance:0.40, heightMin:-3, heightMax:11, widthMin:3.6 },
+    { segCount:40, enemyChance:0.48, heightMin:-4, heightMax:12, widthMin:3.2 }
   ];
   const TOTAL_STAGES = STAGE_THEMES.length;
 
@@ -478,15 +478,29 @@
 
   // decides which way a shell should roll: primarily the direction Mario is currently
   // moving (i.e. the direction of the stomp/kick), falling back to the way he's facing,
-  // and only falling back to "away from Mario" if he's standing still
-  function shellRollDir(en, dx, dz, mvX, mvZ){
-    if(en.axis === 'x'){
-      if(Math.abs(mvX) > 0.08) return Math.sign(mvX);
-      return Math.sign(Math.sin(state.facing)) || Math.sign(dx) || 1;
+  // Calculate velocity vector for shell rolling in all directions
+  function shellRollVelocity(dx, dz, mvX, mvZ){
+    let velX = 0, velZ = 0;
+    
+    // If player is moving, roll in player's direction
+    if(Math.abs(mvX) > 0.08 || Math.abs(mvZ) > 0.08){
+      const len = Math.hypot(mvX, mvZ);
+      velX = (mvX / len) * SHELL_KICK_SPEED;
+      velZ = (mvZ / len) * SHELL_KICK_SPEED;
     } else {
-      if(Math.abs(mvZ) > 0.08) return Math.sign(mvZ);
-      return Math.sign(Math.cos(state.facing)) || Math.sign(dz) || 1;
+      // Otherwise, roll away from player
+      const len = Math.hypot(dx, dz);
+      if(len > 0.1){
+        velX = -(dx / len) * SHELL_KICK_SPEED;
+        velZ = -(dz / len) * SHELL_KICK_SPEED;
+      } else {
+        // Default direction if player is on top
+        velX = Math.cos(state.facing) * SHELL_KICK_SPEED;
+        velZ = Math.sin(state.facing) * SHELL_KICK_SPEED;
+      }
     }
+    
+    return { velX, velZ };
   }
 
   // shows/hides the head & feet so a turtle can visually retract into just its shell
@@ -507,7 +521,7 @@
     enemies.push({
       mesh:mesh, alive:true, kind:kind, axis:rangeAxis, min:rangeMin, max:rangeMax,
       dir: Math.random()<0.5?1:-1, speed: 0.02 + Math.random()*0.015, baseY:y,
-      turtleState: 'walk', slideTimer: 0, vy: 0
+      turtleState: 'walk', slideTimer: 0, vy: 0, velX: 0, velZ: 0
     });
   }
 
@@ -633,6 +647,7 @@
     addPlatform(0, 0, levelStartZ, 8, 1, 8, theme.ground, theme.groundSide);
 
     let curX = 0, curZ = levelStartZ, curY = 0;
+    const checkpointInterval = Math.ceil(diff.segCount / 4);
     for(let i=0;i<diff.segCount;i++){
       const stepZ = 6 + Math.random()*2.5;
       const stepX = (Math.random()-0.5)*7;
@@ -643,6 +658,11 @@
       const w = diff.widthMin + Math.random()*3;
       const d = 4 + Math.random()*2;
       addPlatform(curX, curY, curZ, w, 1, d, theme.ground, theme.groundSide);
+      
+      // Add checkpoint platforms at intervals
+      if(i > 0 && i % checkpointInterval === 0){
+        addPlatform(curX, curY - 0.8, curZ, w + 2, 0.3, d + 2, theme.block, theme.blockDark);
+      }
 
       // Block generation probabilities
       const BLOCK_CHANCE = 0.45;      // Overall chance for a block to appear on a segment
@@ -1022,7 +1042,8 @@
     
     if(block.type === 'question'){
       block.active = false;
-      block.mesh.material.color.setHex(PALETTE.emptyBlock);
+      block.type = 'brick';
+      block.mesh.material.color.setHex(PALETTE.brick);
       dispenseBlockItem(block);
     } else if(block.type === 'brick'){
       // Bricks are now unbreakable as per user request
@@ -1186,6 +1207,8 @@
     let best = null;
     // generous margins so near-miss jumps/landings on platform edges still count
     for(const p of platforms){
+      // Skip hidden blocks - they have no collision
+      if(p.type === 'hidden') continue;
       if(px >= p.minX - 0.5 && px <= p.maxX + 0.5 && pz >= p.minZ - 0.5 && pz <= p.maxZ + 0.5){
         if(py >= p.topY - 0.9){
           if(best === null || p.topY > best) best = p.topY;
@@ -1267,17 +1290,33 @@
 
     // Head collision check (hitting blocks from below)
     if(state.vel.y > 0){
-      for(const p of platforms){
-        if(p.type !== 'solid' && state.pos.x >= p.minX - 0.4 && state.pos.x <= p.maxX + 0.4 && state.pos.z >= p.minZ - 0.4 && state.pos.z <= p.maxZ + 0.4){
-          const headY = state.pos.y + (state.big ? 1.8 : 1.6);
-          if(headY >= p.bottomY && headY <= p.topY){
-            // Hit block!
-            state.pos.y = p.bottomY - (state.big ? 1.8 : 1.6);
+      const headY = state.pos.y + (state.big ? 1.8 : 1.6);
+      
+      // First check for hidden blocks (trigger only, no collision)
+      for(const b of blocks){
+        if(b.type === 'hidden' && state.pos.x >= b.minX - 0.4 && state.pos.x <= b.maxX + 0.4 && state.pos.z >= b.minZ - 0.4 && state.pos.z <= b.maxZ + 0.4){
+          if(headY >= b.bottomY && headY <= b.topY){
+            handleBlockHit(b);
+            state.pos.y = b.bottomY - (state.big ? 1.8 : 1.6);
             state.vel.y = 0;
-            if(p.mesh && blocks.includes(p)){
-              handleBlockHit(p);
-            }
             break;
+          }
+        }
+      }
+      
+      // Then check for solid blocks (collision + trigger)
+      if(state.vel.y > 0){ // Only if not already hit a hidden block
+        for(const p of platforms){
+          if(p.type !== 'solid' && p.type !== 'hidden' && state.pos.x >= p.minX - 0.4 && state.pos.x <= p.maxX + 0.4 && state.pos.z >= p.minZ - 0.4 && state.pos.z <= p.maxZ + 0.4){
+            if(headY >= p.bottomY && headY <= p.topY){
+              // Hit block!
+              state.pos.y = p.bottomY - (state.big ? 1.8 : 1.6);
+              state.vel.y = 0;
+              if(p.mesh && blocks.includes(p)){
+                handleBlockHit(p);
+              }
+              break;
+            }
           }
         }
       }
@@ -1364,19 +1403,20 @@
       if(!en.alive) continue;
       const p = en.mesh.position;
 
-      if(en.kind === 'turtle' && en.turtleState === 'idle'){
-        // retracted shell just sits still until kicked or destroyed
+      if(en.kind === 'turtle' && en.turtleState === 'retracted'){
+        // retracted shell just sits still until stomped or kicked
       } else if(en.kind === 'turtle' && en.turtleState === 'sliding'){
-        const extMin = en.min - 6, extMax = en.max + 6;
-        if(en.axis === 'x'){
-          p.x += en.dir * SHELL_KICK_SPEED;
-          if(p.x <= extMin || p.x >= extMax){ p.x = Math.max(extMin, Math.min(extMax, p.x)); en.turtleState = 'idle'; }
-        } else {
-          p.z += en.dir * SHELL_KICK_SPEED;
-          if(p.z <= extMin || p.z >= extMax){ p.z = Math.max(extMin, Math.min(extMax, p.z)); en.turtleState = 'idle'; }
-        }
+        // Move shell in both X and Z directions
+        p.x += en.velX;
+        p.z += en.velZ;
+        
+        // Stop shell after timer expires
         en.slideTimer--;
-        if(en.slideTimer <= 0) en.turtleState = 'idle';
+        if(en.slideTimer <= 0){
+          en.turtleState = 'retracted';
+          en.velX = 0;
+          en.velZ = 0;
+        }
         // a rolling shell smashes any question block it barrels into
         for(const b of blocks){
           if(b.type === 'question' &&
@@ -1395,7 +1435,23 @@
           if(p.z < en.min || p.z > en.max) en.dir *= -1;
         }
       }
-      en.mesh.rotation.y += en.dir * (en.turtleState === 'sliding' ? 0.14 : 0.03);
+      // Update rotation to face movement direction
+      if(en.turtleState === 'sliding'){
+        // When sliding, rotate based on velocity vector
+        if(Math.abs(en.velX) > 0.001 || Math.abs(en.velZ) > 0.001){
+          en.mesh.rotation.y = Math.atan2(en.velX, en.velZ);
+        }
+      } else if(en.turtleState === 'retracted'){
+        // When retracted, don't rotate
+        en.mesh.rotation.y = 0;
+      } else {
+        // Walking: rotate to face movement direction
+        if(en.axis === 'x'){
+          en.mesh.rotation.y = en.dir > 0 ? 0 : Math.PI;
+        } else {
+          en.mesh.rotation.y = en.dir > 0 ? Math.PI/2 : -Math.PI/2;
+        }
+      }
 
       // gravity: lets shells (and any enemy) fall once they roll or wander off a platform's edge
       en.vy += GRAVITY;
@@ -1426,36 +1482,40 @@
           updateHud();
           playStompSound();
         } else if(en.kind === 'turtle' && en.turtleState === 'walk' && isStomp){
-          // stomp a walking turtle: it retracts into its shell and immediately rolls away
-          en.turtleState = 'sliding';
+          // stomp a walking turtle: it retracts into its shell (first stomp)
+          en.turtleState = 'retracted';
           setTurtleWalking(en.mesh, false);
+          state.vel.y = STOMP_BOUNCE;
+          state.score += 100;
+          updateHud();
+          playStompSound();
+        } else if(en.kind === 'turtle' && en.turtleState === 'retracted' && isStomp){
+          // stomp a retracted shell: it starts rolling away (second stomp)
+          en.turtleState = 'sliding';
           en.slideTimer = SHELL_SLIDE_FRAMES;
-          en.dir = shellRollDir(en, dx, dz, worldX, worldZ);
+          const vel = shellRollVelocity(dx, dz, worldX, worldZ);
+          en.velX = vel.velX;
+          en.velZ = vel.velZ;
           state.vel.y = STOMP_BOUNCE;
           state.score += 200;
           updateHud();
           playStompSound();
-        } else if(en.kind === 'turtle' && en.turtleState === 'idle' && isStomp){
-          // stomp an idle shell: destroy it for a bonus
-          en.alive = false;
-          en.mesh.visible = false;
-          state.vel.y = STOMP_BOUNCE;
-          state.score += 300;
-          updateHud();
-          playStompSound();
         } else if(en.kind === 'turtle' && en.turtleState === 'sliding' && isStomp){
-          // stomp a sliding shell: stop it in its tracks
-          en.turtleState = 'idle';
-          en.dir = 0;
+          // stomp a sliding shell: stop it in its tracks (retract again)
+          en.turtleState = 'retracted';
+          en.velX = 0;
+          en.velZ = 0;
           state.vel.y = STOMP_BOUNCE;
           state.score += 150;
           updateHud();
           playStompSound();
-        } else if(en.kind === 'turtle' && en.turtleState === 'idle' && !isStomp){
-          // kick an idle shell away from the player
+        } else if(en.kind === 'turtle' && en.turtleState === 'retracted' && !isStomp){
+          // kick a retracted shell away from the player
           en.turtleState = 'sliding';
           en.slideTimer = SHELL_SLIDE_FRAMES;
-          en.dir = shellRollDir(en, dx, dz, worldX, worldZ);
+          const vel = shellRollVelocity(dx, dz, worldX, worldZ);
+          en.velX = vel.velX;
+          en.velZ = vel.velZ;
           state.invuln = 30;
           playStompSound();
         } else if(en.kind === 'goomba' && isStomp){
