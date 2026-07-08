@@ -18,6 +18,9 @@
     overscroll-behavior: none;
     touch-action:none;
   }
+  @supports (height: 100dvh) {
+    html, body { height:100dvh; }
+  }
   #gameCanvas {
     display:block;
     width:100vw; height:100vh;
@@ -57,14 +60,6 @@
     margin-bottom:16px;
   }
   #overlay p { font-size:10px; line-height:2.2; margin-bottom:8px; color:#CFEAFF; }
-  #startBtn, #retryBtn {
-    margin-top:22px; font-family:'Press Start 2P', monospace;
-    font-size:12px; padding:14px 26px; cursor:pointer;
-    background:#E40000; color:#FCFCFC; border:4px solid #FCFCFC;
-    box-shadow: 6px 6px 0 #000;
-    transition: transform 0.08s;
-  }
-  #startBtn:active, #retryBtn:active { transform: translate(4px,4px); box-shadow: 2px 2px 0 #000; }
   #fadeFlash {
     position:fixed; inset:0; background:#FCFCFC; opacity:0; pointer-events:none; z-index:15;
   }
@@ -73,32 +68,99 @@
     font-size:20px; color:#FCD800; text-shadow:4px 4px 0 #000;
     z-index:25; opacity:0; pointer-events:none; text-align:center; line-height:2;
     transition: opacity 0.4s;
+    animation: bannerBounce 2s ease-in-out infinite alternate;
+  }
+  @keyframes bannerBounce {
+    from { transform: translate(-50%, -55%); }
+    to { transform: translate(-50%, -45%); }
   }
 
-  /* touch controls */
+  /* touch controls -- sized/positioned with clamp() + safe-area so layout adapts to any screen size */
   #touchControls { position:fixed; inset:0; z-index:12; pointer-events:none; display:none; }
+  /* Ensure all interactive UI elements are above the touch layer and have pointer-events auto */
+  #hud, #pauseBtn, #overlay { pointer-events: auto; }
+  .menuBtn { pointer-events: auto; position: relative; z-index: 35; }
   #joystickBase {
-    position:absolute; left:26px; bottom:26px; width:120px; height:120px;
+    position:absolute;
+    left: calc(env(safe-area-inset-left, 0px) + clamp(14px, 4vw, 32px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(14px, 4vh, 34px));
+    width:clamp(88px, 24vmin, 130px); height:clamp(88px, 24vmin, 130px);
     border-radius:50%; background:rgba(255,255,255,0.15); border:3px solid rgba(255,255,255,0.5);
     pointer-events:auto; touch-action:none;
   }
   #joystickStick {
-    position:absolute; left:35px; top:35px; width:50px; height:50px; border-radius:50%;
+    position:absolute; left:22%; top:22%; width:56%; height:56%; border-radius:50%;
     background:rgba(255,255,255,0.55); border:3px solid rgba(255,255,255,0.8);
     pointer-events:none;
   }
   #jumpBtn {
-    position:absolute; right:30px; bottom:34px; width:90px; height:90px; border-radius:50%;
+    position:absolute;
+    right: calc(env(safe-area-inset-right, 0px) + clamp(18px, 5vw, 36px));
+    bottom: calc(env(safe-area-inset-bottom, 0px) + clamp(18px, 5vh, 40px));
+    width:clamp(68px, 20vmin, 96px); height:clamp(68px, 20vmin, 96px); border-radius:50%;
     background:rgba(228,0,0,0.45); border:3px solid rgba(255,255,255,0.7);
-    color:#fff; font-size:11px; display:flex; align-items:center; justify-content:center;
+    color:#fff; font-size:clamp(9px, 2.6vmin, 12px); display:flex; align-items:center; justify-content:center;
     pointer-events:auto; touch-action:none; text-shadow:2px 2px 0 #000;
   }
   #jumpBtn:active { background:rgba(228,0,0,0.75); }
   #camHint {
-    position:absolute; top:16px; left:50%; transform:translateX(-50%);
+    position:absolute; top: calc(env(safe-area-inset-top, 0px) + 16px); left:50%; transform:translateX(-50%);
     font-size:8px; color:rgba(255,255,255,0.7); text-shadow:2px 2px 0 #000;
     text-align:center;
   }
+  /* short/landscape phones: pull controls in closer so they stay reachable */
+  @media (max-height: 420px) {
+    #joystickBase { bottom: calc(env(safe-area-inset-bottom, 0px) + 8px); left: calc(env(safe-area-inset-left, 0px) + 8px); }
+    #jumpBtn { bottom: calc(env(safe-area-inset-bottom, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 12px); }
+  }
+
+  #pauseBtn {
+    position:fixed; z-index:11;
+    top: calc(env(safe-area-inset-top, 0px) + clamp(10px, 2.5vh, 18px));
+    right: calc(env(safe-area-inset-right, 0px) + clamp(10px, 2.5vw, 20px));
+    width:clamp(38px, 9vmin, 50px); height:clamp(38px, 9vmin, 50px);
+    background:rgba(0,0,0,0.45); border:2px solid rgba(255,255,255,0.75); border-radius:8px;
+    color:#FCFCFC; font-size:clamp(14px, 3.4vmin, 18px); line-height:1;
+    display:none; align-items:center; justify-content:center; cursor:pointer;
+    pointer-events:auto;
+  }
+  #pauseBtn:active { background:rgba(0,0,0,0.7); }
+
+  .menuBtnRow { display:flex; flex-direction:column; align-items:center; gap:14px; margin-top:22px; }
+  .menuBtn {
+    font-family:'Press Start 2P', monospace;
+    font-size:11px; padding:12px 24px; cursor:pointer;
+    background:#E40000; color:#FCFCFC; border:4px solid #FCFCFC;
+    box-shadow: 5px 5px 0 #000;
+    transition: all 0.2s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    animation: floatBtn 3s ease-in-out infinite;
+  }
+  .menuBtn:hover {
+    transform: scale(1.1);
+    background: #FF3030;
+    box-shadow: 8px 8px 0 #000;
+  }
+  .menuBtn:active { transform: scale(0.95) translate(2px,2px); box-shadow: 2px 2px 0 #000; }
+  
+  @keyframes floatBtn {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+  }
+  
+  #overlay {
+    position:fixed; inset:0; display:flex; flex-direction:column;
+    align-items:center; justify-content:center; z-index:30;
+    background: radial-gradient(circle at center, rgba(20,20,60,0.85), rgba(0,0,0,0.92));
+    color:#FCFCFC; text-align:center; padding:20px;
+    animation: fadeIn 0.5s ease-out;
+  }
+  
+  @keyframes fadeIn {
+    from { opacity: 0; transform: scale(1.1); }
+    to { opacity: 1; transform: scale(1); }
+  }
+  .menuBtn.secondary { background:#0058F8; }
+  .menuBtn.tertiary { background:#585858; }
 </style>
 </head>
 <body>
@@ -117,8 +179,10 @@
   </div>
 </div>
 
+<button id="pauseBtn" aria-label="ポーズ">&#10074;&#10074;</button>
+
 <div id="controls-hint" style="display:none;">
-  &#8592; &#8594; &#8593; &#8595; / WASD : 移動　　SPACE : ジャンプ　　ドラッグ : カメラ回転
+  &#8592; &#8594; &#8593; &#8595; / WASD : 移動　　SPACE : ジャンプ　　ドラッグ : カメラ回転　　ESC/P : ポーズ
 </div>
 
 <div id="touchControls">
@@ -130,11 +194,7 @@
 <div id="stageBanner"></div>
 <div id="fadeFlash"></div>
 
-<div id="overlay">
-  <h1>SUPER<br>BOX BROTHERS 3D</h1>
-  <p>コインを集めてゴールの旗を目指せ！<br>敵をふんで倒そう。穴に落ちたり敵に当たるとライフが減るよ。<br>キノコで大きくなる、1UPキノコでライフ+1、スターで無敵に！</p>
-  <button id="startBtn">スタート</button>
-</div>
+<div id="overlay"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
@@ -169,7 +229,6 @@
 
   const PALETTE = {
     coin: 0xFCD800,
-    cloud: 0xFCFCFC,
     flagPole: 0xC0C0C0,
     flag: 0x00E430,
     playerRed: 0xE40000,
@@ -184,7 +243,15 @@
     mushroomStem: 0xFCD8A0,
     oneUpCap: 0x00A800,
     starCore: 0xFCD800,
-    starGlow: 0xFCE870
+    starGlow: 0xFCE870,
+    turtleShell: 0x30B840,
+    turtleShellDark: 0x1C7828,
+    turtleBelly: 0xFCE8B0,
+    turtleSkin: 0x78D858,
+    brick: 0xC84C0C,
+    brickDark: 0x702000,
+    question: 0xFCBC00,
+    emptyBlock: 0x787878
   };
 
   // ============ RENDERER / SCENE / CAMERA ============
@@ -192,7 +259,7 @@
   const renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias:false });
 
   const scene = new THREE.Scene();
-  scene.fog = new THREE.Fog(STAGE_THEMES[0].sky, 30, 90);
+
   renderer.setClearColor(STAGE_THEMES[0].sky);
 
   const camera = new THREE.PerspectiveCamera(62, 1, 0.1, 300);
@@ -210,6 +277,12 @@
     camera.updateProjectionMatrix();
   }
   window.addEventListener('resize', resize);
+  window.addEventListener('orientationchange', ()=>{ setTimeout(resize, 150); });
+  if(window.visualViewport){
+    // keeps the canvas correctly sized when mobile browser chrome (address bar) shows/hides
+    window.visualViewport.addEventListener('resize', resize);
+    window.visualViewport.addEventListener('scroll', ()=>{ window.scrollTo(0,0); });
+  }
 
   // ============ LIGHTING ============
   const ambient = new THREE.AmbientLight(0xffffff, 0.75);
@@ -223,44 +296,10 @@
 
   function mat(color){ return new THREE.MeshLambertMaterial({ color: color }); }
 
-  // ============ CLOUDS / STARS / HILLS ============
-  const cloudGroup = new THREE.Group();
-  function makeCloud(x,y,z,scale){
-    const g = new THREE.Group();
-    const parts = [[0,0,0,1],[0.9,0.15,0,0.7],[-0.9,0.15,0,0.7],[0.4,0.4,0,0.6],[-0.4,0.4,0,0.6]];
-    parts.forEach(p=>{
-      const box = new THREE.Mesh(new THREE.BoxGeometry(1.4*p[3],1*p[3],1*p[3]), mat(PALETTE.cloud));
-      box.position.set(p[0],p[1],p[2]);
-      g.add(box);
-    });
-    g.position.set(x,y,z);
-    g.scale.setScalar(scale);
-    return g;
-  }
-  for(let i=0;i<14;i++){
-    const c = makeCloud(-40 + i*8 + Math.random()*6, 12+Math.random()*8, -20 - Math.random()*30, 1.5+Math.random()*1.5);
-    cloudGroup.add(c);
-  }
-  scene.add(cloudGroup);
+  // ============ STARS / HILLS ============
 
-  const starGroup = new THREE.Group();
-  const starGeo = new THREE.BoxGeometry(0.3,0.3,0.3);
-  const starMat = mat(0xFFFFFF);
-  for(let i=0;i<80;i++){
-    const s = new THREE.Mesh(starGeo, starMat);
-    s.position.set((Math.random()-0.5)*140, 15+Math.random()*25, -20-Math.random()*80);
-    starGroup.add(s);
-  }
-  starGroup.visible = false;
-  scene.add(starGroup);
 
-  const hillMeshes = [];
-  for(let i=0;i<8;i++){
-    const hill = new THREE.Mesh(new THREE.SphereGeometry(8+Math.random()*4, 8, 6, 0, Math.PI*2, 0, Math.PI/2), mat(STAGE_THEMES[0].sky));
-    hill.position.set(-50 + i*15, -2, -50 - Math.random()*10);
-    scene.add(hill);
-    hillMeshes.push(hill);
-  }
+
 
   // ============ LEVEL STATE ============
   let platforms = [];
@@ -268,6 +307,7 @@
   let enemies = [];
   let items = [];
   let platformMeshes = [];
+  let blocks = []; // New array for interactive blocks
   let goalPos = null;
   let poleGroup = null;
   let levelStartZ = 6;
@@ -277,8 +317,9 @@
     coins.forEach(c=>scene.remove(c.mesh));
     enemies.forEach(e=>scene.remove(e.mesh));
     items.forEach(it=>scene.remove(it.mesh));
+    blocks.forEach(b=>scene.remove(b.mesh));
     if(poleGroup) scene.remove(poleGroup);
-    platforms = []; coins = []; enemies = []; items = []; platformMeshes = [];
+    platforms = []; coins = []; enemies = []; items = []; platformMeshes = []; blocks = [];
   }
 
   function addPlatform(x,y,z,w,h,d, colorTop, colorSide){
@@ -294,11 +335,40 @@
     const plat = {
       minX:x-w/2, maxX:x+w/2,
       minZ:z-d/2, maxZ:z+d/2,
-      topY: y+h/2, w:w
+      topY: y+h/2, bottomY: y-h/2, w:w, h:h, d:d,
+      type: 'solid'
     };
     platforms.push(plat);
     platformMeshes.push(mesh);
     return plat;
+  }
+
+  function addBlock(x,y,z, type){
+    const geo = new THREE.BoxGeometry(1,1,1);
+    let color;
+    if(type === 'brick') color = PALETTE.brick;
+    else if(type === 'question') color = PALETTE.question;
+    else if(type === 'hidden') color = 0xFFFFFF; // invisible but placeholder color
+    
+    const mesh = new THREE.Mesh(geo, mat(color));
+    mesh.position.set(x,y,z);
+    if(type === 'hidden') mesh.visible = false;
+    scene.add(mesh);
+    
+    const block = {
+      mesh: mesh,
+      type: type,
+      baseY: y,
+      hitTimer: 0,
+      active: true,
+      minX:x-0.5, maxX:x+0.5,
+      minZ:z-0.5, maxZ:z+0.5,
+      topY: y+0.5, bottomY: y-0.5,
+      w:1, h:1, d:1
+    };
+    blocks.push(block);
+    platforms.push(block); // Add to platforms for collision
+    return block;
   }
 
   function addCoin(x,y,z){
@@ -336,13 +406,63 @@
     return g;
   }
 
-  function addEnemy(x,y,z, rangeAxis, rangeMin, rangeMax){
-    const mesh = makeEnemyMesh();
+  function makeTurtleMesh(){
+    const g = new THREE.Group();
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.42,10,8,0,Math.PI*2,0,Math.PI/1.6), mat(PALETTE.turtleShell));
+    shell.position.y = 0.4;
+    shell.userData.part = 'shell';
+    g.add(shell);
+    for(let i=-1;i<=1;i++){
+      const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.07,0.32,0.07), mat(PALETTE.turtleShellDark));
+      ridge.position.set(i*0.17, 0.55, 0.16);
+      ridge.rotation.x = -0.4;
+      ridge.userData.part = 'shell';
+      g.add(ridge);
+    }
+    const belly = new THREE.Mesh(new THREE.BoxGeometry(0.5,0.3,0.5), mat(PALETTE.turtleBelly));
+    belly.position.y = 0.22;
+    belly.userData.part = 'shell';
+    g.add(belly);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.2,8,6), mat(PALETTE.turtleSkin));
+    head.position.set(0, 0.4, 0.4);
+    head.userData.part = 'head';
+    g.add(head);
+    const eyeGeo = new THREE.BoxGeometry(0.06,0.06,0.03);
+    const eyeMatWhite = mat(0xFCFCFC);
+    const eyeL = new THREE.Mesh(eyeGeo, eyeMatWhite);
+    eyeL.position.set(-0.08,0.46,0.56);
+    eyeL.userData.part = 'head';
+    g.add(eyeL);
+    const eyeR = eyeL.clone(); eyeR.position.x = 0.08; eyeR.userData.part='head'; g.add(eyeR);
+    const footGeo = new THREE.BoxGeometry(0.15,0.13,0.18);
+    const footMat = mat(PALETTE.turtleSkin);
+    const footFL = new THREE.Mesh(footGeo, footMat);
+    footFL.position.set(-0.24,0.07,0.26); footFL.userData.part='foot'; g.add(footFL);
+    const footFR = footFL.clone(); footFR.position.x = 0.24; footFR.userData.part='foot'; g.add(footFR);
+    const footBL = footFL.clone(); footBL.position.z = -0.26; footBL.userData.part='foot'; g.add(footBL);
+    const footBR = footFR.clone(); footBR.position.z = -0.26; footBR.userData.part='foot'; g.add(footBR);
+    return g;
+  }
+
+  // shows/hides the head & feet so a turtle can visually retract into just its shell
+  function setTurtleWalking(mesh, walking){
+    mesh.traverse(child=>{
+      if(child.userData && (child.userData.part === 'head' || child.userData.part === 'foot')){
+        child.visible = walking;
+      }
+    });
+    mesh.scale.y = walking ? 1 : 0.82;
+  }
+
+  function addEnemy(x,y,z, rangeAxis, rangeMin, rangeMax, kind){
+    kind = kind || 'goomba';
+    const mesh = (kind === 'turtle') ? makeTurtleMesh() : makeEnemyMesh();
     mesh.position.set(x,y,z);
     scene.add(mesh);
     enemies.push({
-      mesh:mesh, alive:true, axis:rangeAxis, min:rangeMin, max:rangeMax,
-      dir: Math.random()<0.5?1:-1, speed: 0.02 + Math.random()*0.015, baseY:y
+      mesh:mesh, alive:true, kind:kind, axis:rangeAxis, min:rangeMin, max:rangeMax,
+      dir: Math.random()<0.5?1:-1, speed: 0.02 + Math.random()*0.015, baseY:y,
+      turtleState: 'walk', slideTimer: 0
     });
   }
 
@@ -374,10 +494,28 @@
     return g;
   }
 
+  function makeShellItemMesh(){
+    const g = new THREE.Group();
+    const shell = new THREE.Mesh(new THREE.SphereGeometry(0.38,10,8,0,Math.PI*2,0,Math.PI/1.6), mat(PALETTE.turtleShell));
+    shell.position.y = 0.36;
+    g.add(shell);
+    for(let i=-1;i<=1;i++){
+      const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.06,0.28,0.06), mat(PALETTE.turtleShellDark));
+      ridge.position.set(i*0.15, 0.5, 0.14);
+      ridge.rotation.x = -0.4;
+      g.add(ridge);
+    }
+    const belly = new THREE.Mesh(new THREE.BoxGeometry(0.44,0.26,0.44), mat(PALETTE.turtleBelly));
+    belly.position.y = 0.2;
+    g.add(belly);
+    return g;
+  }
+
   function addItem(type, x, y, z){
     let mesh;
     if(type === 'mushroom') mesh = makeMushroomMesh(PALETTE.mushroomCap);
     else if(type === 'oneup') mesh = makeMushroomMesh(PALETTE.oneUpCap);
+    else if(type === 'shell') mesh = makeShellItemMesh();
     else mesh = makeStarMesh();
     mesh.position.set(x,y,z);
     scene.add(mesh);
@@ -385,10 +523,9 @@
   }
 
   function applyTheme(theme){
-    scene.fog.color.setHex(theme.sky);
+    // scene.fog removed
     renderer.setClearColor(theme.sky);
-    hillMeshes.forEach(h=>h.material.color.setHex(theme.sky));
-    starGroup.visible = theme.stars;
+    // hillMeshes and starGroup removed as per user request
     lavaLight.intensity = theme.lava ? 1.4 : 0;
   }
 
@@ -413,7 +550,20 @@
       const d = 4 + Math.random()*2;
       addPlatform(curX, curY, curZ, w, 1, d, theme.ground, theme.groundSide);
 
-      if(Math.random() < 0.5){
+      // Block generation probabilities
+      const BLOCK_CHANCE = 0.45;      // Overall chance for a block to appear on a segment
+      const QUESTION_RATIO = 0.5;    // 50% of blocks are question blocks
+      const BRICK_RATIO = 0.4;       // 40% of blocks are brick blocks
+      const HIDDEN_RATIO = 0.1;      // 10% of blocks are hidden blocks
+
+      if(Math.random() < BLOCK_CHANCE){
+        const bx = curX + (Math.random()-0.5)*2.5;
+        const bz = curZ + (Math.random()-0.5)*2.5;
+        const r = Math.random();
+        if(r < QUESTION_RATIO) addBlock(bx, curY + 3.5, bz, 'question');
+        else if(r < QUESTION_RATIO + BRICK_RATIO) addBlock(bx, curY + 3.5, bz, 'brick');
+        else addBlock(bx, curY + 3.5, bz, 'hidden');
+      } else if(Math.random() < 0.3){
         addCoin(curX + (Math.random()-0.5)*1.5, curY + 2.2, curZ + (Math.random()-0.5)*1.5);
       }
       if(Math.random() < 0.28){
@@ -422,13 +572,16 @@
       // enemies: only on wide-enough platforms, not the first couple of segments
       if(i > 1 && w >= 4.2 && Math.random() < diff.enemyChance){
         const margin = w/2 - 0.8;
-        addEnemy(curX, curY+0.5, curZ, 'x', curX-margin, curX+margin);
+        const kind = Math.random() < 0.4 ? 'turtle' : 'goomba';
+        addEnemy(curX, curY+0.5, curZ, 'x', curX-margin, curX+margin, kind);
       }
-      // power-up items: mushroom (common-ish), star (rare), 1-up (rarest)
+      // power-up items: mushroom (common-ish), star (rare), shell (rare), 1-up (rarest)
       if(i > 0 && Math.random() < 0.16){
         addItem('mushroom', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
       } else if(i > 2 && Math.random() < 0.07){
         addItem('star', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
+      } else if(i > 2 && Math.random() < 0.06){
+        addItem('shell', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
       } else if(i > 2 && Math.random() < 0.045){
         addItem('oneup', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
       }
@@ -488,6 +641,8 @@
   const JUMP_VELOCITY = 0.44;
   const STOMP_BOUNCE = 0.32;
   const MOVE_SPEED = 0.14;
+  const SHELL_KICK_SPEED = 0.11;
+  const SHELL_SLIDE_FRAMES = 260;
   const state = {
     pos: new THREE.Vector3(0, 1, 6),
     vel: new THREE.Vector3(0,0,0),
@@ -499,9 +654,11 @@
     lastCheckpoint: new THREE.Vector3(0,1,6),
     stageIndex: 0,
     running: false,
+    paused: false,
     invuln: 0,
     big: false,
-    starTimer: 0
+    starTimer: 0,
+    shellShield: false
   };
 
   // ============ KEYBOARD INPUT ============
@@ -624,6 +781,7 @@
   const overlay = document.getElementById('overlay');
   const fadeFlash = document.getElementById('fadeFlash');
   const stageBanner = document.getElementById('stageBanner');
+  const pauseBtnEl = document.getElementById('pauseBtn');
 
   function updateHud(){
     scoreVal.textContent = String(state.score).padStart(6,'0');
@@ -653,15 +811,39 @@
   const playHurtSound = ()=>beep(150,60,0.3,0.09);
 
   // ============ GAME FLOW ============
-  function showOverlay(html, buttonId, buttonLabel, onClick){
-    overlay.innerHTML = html + `<button id="${buttonId}">${buttonLabel}</button>`;
+  const TITLE_HTML = `<h1>SUPER<br>BOX BROTHERS 3D</h1>
+    <p>コインを集めてゴールの旗を目指せ！<br>敵をふんで倒そう。穴に落ちたり敵に当たるとライフが減るよ。<br>キノコで大きくなる、1UPキノコでライフ+1、スターで無敵に！<br>甲羅アイテムで1回だけ攻撃をブロック。歩く亀は踏むと甲羅になり、蹴って攻撃にも使える！</p>`;
+
+  // Generic menu renderer: shows arbitrary HTML plus a stack of buttons.
+  // buttons: [{ label, className (optional), onClick }]
+  function showMenu(html, buttons){
+    overlay.innerHTML = html + '<div class="menuBtnRow"></div>';
+    const row = overlay.querySelector('.menuBtnRow');
+    buttons.forEach(b=>{
+      const btn = document.createElement('button');
+      btn.className = 'menuBtn' + (b.className ? ' ' + b.className : '');
+      btn.textContent = b.label;
+      // Use both click and pointerdown to ensure responsiveness
+      const handler = (e)=>{ 
+        e.preventDefault();
+        e.stopPropagation();
+        e.target.blur(); 
+        b.onClick(); 
+      };
+      btn.addEventListener('click', handler);
+      btn.addEventListener('pointerdown', (e) => e.stopPropagation());
+      row.appendChild(btn);
+    });
     overlay.style.display = 'flex';
-    document.getElementById(buttonId).addEventListener('click', (e)=>{ e.target.blur(); onClick(); });
   }
 
   function resetPlayerToCheckpoint(){
     state.pos.copy(state.lastCheckpoint);
     state.vel.set(0,0,0);
+    coyoteTimer = 0;
+    jumpBufferTimer = 0;
+    jumpHeld = false;
+    touchJump = false;
   }
 
   function loadStage(idx){
@@ -681,6 +863,7 @@
     state.invuln = 0;
     state.big = false;
     state.starTimer = 0;
+    state.shellShield = false;
     player.scale.set(1,1,1);
     loadStage(0);
   }
@@ -690,10 +873,107 @@
     overlay.style.display = 'none';
     hud.style.display = 'flex';
     controlsHint.style.display = isTouchDevice ? 'none' : 'block';
+    pauseBtnEl.style.display = 'flex';
+    state.running = true;
+    state.paused = false;
+  }
+
+  function handleBlockHit(block){
+    if(!block.active && block.type !== 'brick') return;
+    
+    if(block.type === 'hidden'){
+      block.mesh.visible = true;
+      block.mesh.material.color.setHex(PALETTE.question);
+      block.type = 'question'; // Become a question block
+      playStompSound();
+    }
+    
+    block.hitTimer = 10;
+    
+    if(block.type === 'question'){
+      block.active = false;
+      block.mesh.material.color.setHex(PALETTE.emptyBlock);
+      state.coins += 1;
+      state.score += 100;
+      updateHud();
+      playCoinSound();
+      
+      // Visual coin pop effect
+      const vCoin = new THREE.Mesh(new THREE.CylinderGeometry(0.4,0.4,0.1,10), mat(PALETTE.coin));
+      vCoin.rotation.x = Math.PI/2;
+      vCoin.position.copy(block.mesh.position);
+      scene.add(vCoin);
+      let vTimer = 0;
+      const animCoin = ()=>{
+        vTimer++;
+        vCoin.position.y += 0.15 - vTimer*0.01;
+        vCoin.rotation.y += 0.2;
+        if(vTimer < 30) requestAnimationFrame(animCoin);
+        else scene.remove(vCoin);
+      };
+      animCoin();
+    } else if(block.type === 'brick'){
+      // Bricks are now unbreakable as per user request
+      playStompSound();
+    }
+  }
+
+  function showTitleScreen(){
+    state.running = false;
+    state.paused = false;
+    hud.style.display = 'none';
+    controlsHint.style.display = 'none';
+    pauseBtnEl.style.display = 'none';
+    showMenu(TITLE_HTML, [
+      { label: 'スタート', onClick: startGame }
+    ]);
+  }
+
+  function pauseGame(){
+    if(!state.running || state.paused) return;
+    state.running = false;
+    state.paused = true;
+    touchJump = false;
+    jumpHeld = false;
+    pauseBtnEl.style.display = 'none';
+    showMenu(
+      `<h2 style="color:#00E430;">PAUSE</h2>
+       <p>STAGE ${state.stageIndex+1} / ${TOTAL_STAGES}　${STAGE_THEMES[state.stageIndex].name}<br>スコア: ${String(state.score).padStart(6,'0')}</p>`,
+      [
+        { label: 'つづける', onClick: resumeGame },
+        { label: 'このステージを最初から', className:'secondary', onClick: restartStage },
+        { label: 'メインメニューへ戻る', className:'tertiary', onClick: showTitleScreen }
+      ]
+    );
+  }
+
+  function resumeGame(){
+    if(!state.paused) return;
+    overlay.style.display = 'none';
+    state.paused = false;
+    state.running = true;
+    pauseBtnEl.style.display = 'flex';
+  }
+
+  function restartStage(){
+    overlay.style.display = 'none';
+    state.paused = false;
+    resetPlayerToCheckpoint();
+    updateHud();
+    pauseBtnEl.style.display = 'flex';
     state.running = true;
   }
 
-  document.getElementById('startBtn').addEventListener('click', (e)=>{ e.target.blur(); startGame(); });
+  pauseBtnEl.addEventListener('click', (e)=>{ e.target.blur(); pauseGame(); });
+  window.addEventListener('keydown', e=>{
+    if(e.code === 'Escape' || e.code === 'KeyP'){
+      e.preventDefault();
+      if(state.running && !state.paused) pauseGame();
+      else if(state.paused) resumeGame();
+    }
+  }, {passive:false});
+
+  showTitleScreen();
 
   function flashScreen(){
     fadeFlash.style.transition = 'none';
@@ -720,10 +1000,15 @@
     playHurtSound();
     if(state.lives <= 0){
       state.running = false;
-      showOverlay(
+      state.paused = false;
+      pauseBtnEl.style.display = 'none';
+      showMenu(
         `<h2 style="color:#E40000;text-shadow:4px 4px 0 #5c0000;">GAME OVER</h2>
          <p>スコア: ${String(state.score).padStart(6,'0')}<br>集めたコイン: ${state.coins}<br>到達ステージ: ${state.stageIndex+1}</p>`,
-        'retryBtn', 'もう一度あそぶ', startGame
+        [
+          { label: 'もう一度あそぶ', onClick: startGame },
+          { label: 'メインメニューへ戻る', className:'tertiary', onClick: showTitleScreen }
+        ]
       );
       hud.style.display = 'none';
       controlsHint.style.display = 'none';
@@ -742,10 +1027,14 @@
         state.running = true;
       }, 1700);
     } else {
-      showOverlay(
+      pauseBtnEl.style.display = 'none';
+      showMenu(
         `<h2>ALL CLEAR !!</h2>
          <p>全ステージクリア！<br>スコア: ${String(state.score).padStart(6,'0')}<br>集めたコイン: ${state.coins}</p>`,
-        'retryBtn', 'もう一度あそぶ', startGame
+        [
+          { label: 'もう一度あそぶ', onClick: startGame },
+          { label: 'メインメニューへ戻る', className:'tertiary', onClick: showTitleScreen }
+        ]
       );
       hud.style.display = 'none';
       controlsHint.style.display = 'none';
@@ -759,15 +1048,23 @@
 
   function findSupport(px, py, pz){
     let best = null;
+    // generous margins so near-miss jumps/landings on platform edges still count
     for(const p of platforms){
-      if(px >= p.minX - 0.35 && px <= p.maxX + 0.35 && pz >= p.minZ - 0.35 && pz <= p.maxZ + 0.35){
-        if(py >= p.topY - 0.6){
+      if(px >= p.minX - 0.5 && px <= p.maxX + 0.5 && pz >= p.minZ - 0.5 && pz <= p.maxZ + 0.5){
+        if(py >= p.topY - 0.9){
           if(best === null || p.topY > best) best = p.topY;
         }
       }
     }
     return best;
   }
+
+  // jump forgiveness: a short grace window after walking off a ledge (coyote time),
+  // and a short window where an early jump press still fires once you land (jump buffer)
+  const COYOTE_FRAMES = 9;
+  const JUMP_BUFFER_FRAMES = 9;
+  let coyoteTimer = 0;
+  let jumpBufferTimer = 0;
 
   function update(){
     if(!state.running) return;
@@ -800,21 +1097,49 @@
       bobPhase += 0.25;
     }
 
-    // ---- jump ----
+    // ---- jump (with coyote time + jump buffering for a forgiving feel) ----
     const jumpPressed = isDown('Space') || touchJump;
-    if(jumpPressed && state.onGround && !jumpHeld){
+    const jumpJustPressed = jumpPressed && !jumpHeld;
+    jumpHeld = jumpPressed;
+
+    if(state.onGround) coyoteTimer = COYOTE_FRAMES;
+    else if(coyoteTimer > 0) coyoteTimer--;
+
+    if(jumpJustPressed) jumpBufferTimer = JUMP_BUFFER_FRAMES;
+    else if(jumpBufferTimer > 0) jumpBufferTimer--;
+
+    if(jumpBufferTimer > 0 && coyoteTimer > 0){
       state.vel.y = JUMP_VELOCITY;
       state.onGround = false;
+      coyoteTimer = 0;
+      jumpBufferTimer = 0;
       playJumpSound();
     }
-    jumpHeld = jumpPressed;
 
     // ---- gravity ----
     state.vel.y += GRAVITY;
     state.pos.y += state.vel.y;
 
+    // Head collision check (hitting blocks from below)
+    if(state.vel.y > 0){
+      for(const p of platforms){
+        if(p.type !== 'solid' && state.pos.x >= p.minX - 0.4 && state.pos.x <= p.maxX + 0.4 && state.pos.z >= p.minZ - 0.4 && state.pos.z <= p.maxZ + 0.4){
+          const headY = state.pos.y + (state.big ? 1.8 : 1.6);
+          if(headY >= p.bottomY && headY <= p.topY){
+            // Hit block!
+            state.pos.y = p.bottomY - (state.big ? 1.8 : 1.6);
+            state.vel.y = 0;
+            if(p.mesh && blocks.includes(p)){
+              handleBlockHit(p);
+            }
+            break;
+          }
+        }
+      }
+    }
+
     const support = findSupport(state.pos.x, state.pos.y, state.pos.z);
-    if(support !== null && state.pos.y <= support + 0.02 && state.vel.y <= 0){
+    if(support !== null && state.pos.y <= support + 0.22 && state.vel.y <= 0){
       state.pos.y = support;
       state.vel.y = 0;
       state.onGround = true;
@@ -824,6 +1149,15 @@
       }
     } else {
       state.onGround = false;
+    }
+
+    // Update blocks hit animation
+    for(const b of blocks){
+      if(b.hitTimer > 0){
+        b.hitTimer--;
+        b.mesh.position.y = b.baseY + Math.sin(b.hitTimer * 0.4) * 0.2;
+        if(b.hitTimer === 0) b.mesh.position.y = b.baseY;
+      }
     }
 
     if(state.pos.y < -14){
@@ -845,6 +1179,8 @@
     }
     if(statusVal){
       if(state.starTimer > 0) statusVal.textContent = '★ STAR ' + Math.ceil(state.starTimer/60) + 's';
+      else if(state.shellShield && state.big) statusVal.textContent = '● BIG 🛡';
+      else if(state.shellShield) statusVal.textContent = '🛡 SHELL';
       else if(state.big) statusVal.textContent = '● BIG';
       else statusVal.textContent = '';
     }
@@ -881,20 +1217,38 @@
     for(const en of enemies){
       if(!en.alive) continue;
       const p = en.mesh.position;
-      if(en.axis === 'x'){
-        p.x += en.dir * en.speed;
-        if(p.x < en.min || p.x > en.max) en.dir *= -1;
+
+      if(en.kind === 'turtle' && en.turtleState === 'idle'){
+        // retracted shell just sits still until kicked or destroyed
+      } else if(en.kind === 'turtle' && en.turtleState === 'sliding'){
+        const extMin = en.min - 6, extMax = en.max + 6;
+        if(en.axis === 'x'){
+          p.x += en.dir * SHELL_KICK_SPEED;
+          if(p.x <= extMin || p.x >= extMax){ p.x = Math.max(extMin, Math.min(extMax, p.x)); en.turtleState = 'idle'; }
+        } else {
+          p.z += en.dir * SHELL_KICK_SPEED;
+          if(p.z <= extMin || p.z >= extMax){ p.z = Math.max(extMin, Math.min(extMax, p.z)); en.turtleState = 'idle'; }
+        }
+        en.slideTimer--;
+        if(en.slideTimer <= 0) en.turtleState = 'idle';
       } else {
-        p.z += en.dir * en.speed;
-        if(p.z < en.min || p.z > en.max) en.dir *= -1;
+        if(en.axis === 'x'){
+          p.x += en.dir * en.speed;
+          if(p.x < en.min || p.x > en.max) en.dir *= -1;
+        } else {
+          p.z += en.dir * en.speed;
+          if(p.z < en.min || p.z > en.max) en.dir *= -1;
+        }
       }
-      en.mesh.rotation.y += en.dir * 0.03;
+      en.mesh.rotation.y += en.dir * (en.turtleState === 'sliding' ? 0.14 : 0.03);
 
       const dx = p.x - state.pos.x;
       const dz = p.z - state.pos.z;
       const dy = (p.y+0.5) - (state.pos.y+0.6);
       if(Math.abs(dx) < 0.65 && Math.abs(dz) < 0.65 && Math.abs(dy) < 0.75 && state.invuln === 0){
         const playerBottom = state.pos.y;
+        const isStomp = state.vel.y < 0 && playerBottom > p.y + 0.25;
+
         if(state.starTimer > 0){
           // invincible star: defeat enemy on any contact
           en.alive = false;
@@ -902,7 +1256,38 @@
           state.score += 200;
           updateHud();
           playStompSound();
-        } else if(state.vel.y < 0 && playerBottom > p.y + 0.25){
+        } else if(en.kind === 'turtle' && en.turtleState === 'walk' && isStomp){
+          // stomp a walking turtle: it retracts into its shell
+          en.turtleState = 'idle';
+          setTurtleWalking(en.mesh, false);
+          state.vel.y = STOMP_BOUNCE;
+          state.score += 200;
+          updateHud();
+          playStompSound();
+        } else if(en.kind === 'turtle' && en.turtleState === 'idle' && isStomp){
+          // stomp an idle shell: destroy it for a bonus
+          en.alive = false;
+          en.mesh.visible = false;
+          state.vel.y = STOMP_BOUNCE;
+          state.score += 300;
+          updateHud();
+          playStompSound();
+        } else if(en.kind === 'turtle' && en.turtleState === 'sliding' && isStomp){
+          // stomp a sliding shell: stop it in its tracks
+          en.turtleState = 'idle';
+          en.dir = 0;
+          state.vel.y = STOMP_BOUNCE;
+          state.score += 150;
+          updateHud();
+          playStompSound();
+        } else if(en.kind === 'turtle' && en.turtleState === 'idle' && !isStomp){
+          // kick an idle shell away from the player
+          en.turtleState = 'sliding';
+          en.slideTimer = SHELL_SLIDE_FRAMES;
+          en.dir = (en.axis === 'x') ? Math.sign(dx || 1) : Math.sign(dz || 1);
+          state.invuln = 30;
+          playStompSound();
+        } else if(en.kind === 'goomba' && isStomp){
           // stomp
           en.alive = false;
           en.mesh.visible = false;
@@ -917,6 +1302,13 @@
           state.invuln = 90;
           flashScreen();
           playHurtSound();
+        } else if(state.shellShield){
+          // shell item shield absorbs one hit
+          state.shellShield = false;
+          state.invuln = 90;
+          flashScreen();
+          playHurtSound();
+          updateHud();
         } else {
           // hurt
           state.invuln = 70;
@@ -949,6 +1341,9 @@
         } else if(it.type === 'star'){
           state.starTimer = 600;
           state.score += 200;
+        } else if(it.type === 'shell'){
+          state.shellShield = true;
+          state.score += 250;
         }
         updateHud();
         playCoinSound();
@@ -970,8 +1365,7 @@
     camera.position.lerp(new THREE.Vector3(cx,cy,cz), 0.18);
     camera.lookAt(target);
 
-    cloudGroup.position.x = Math.sin(performance.now()*0.00005)*2;
-    starGroup.position.x = cloudGroup.position.x;
+    // starGroup removed as per user request
     if(STAGE_THEMES[state.stageIndex].lava){
       lavaLight.position.set(state.pos.x, state.pos.y-1, state.pos.z);
     }
