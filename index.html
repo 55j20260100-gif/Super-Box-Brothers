@@ -474,8 +474,10 @@
   // decides which way a shell should roll: primarily the direction Mario is currently
   // moving (i.e. the direction of the stomp/kick), falling back to the way he's facing,
   // Enemy death animation
-  function playEnemyDeathAnimation(enemy){
-    const startPos = enemy.mesh.position.clone();
+  function playEnemyDeathAnimation(enemy, facing){
+    // fly off in the direction the player is currently facing
+    const dirX = Math.sin(facing || 0);
+    const dirZ = Math.cos(facing || 0);
     let deathTimer = 0;
     const deathDuration = 40;
     
@@ -485,7 +487,8 @@
         // Flip upside down and fly away
         enemy.mesh.rotation.x += 0.2;
         enemy.mesh.position.y += 0.08;
-        enemy.mesh.position.z -= 0.15; // Move away from player
+        enemy.mesh.position.x += dirX * 0.15;
+        enemy.mesh.position.z += dirZ * 0.15;
         requestAnimationFrame(deathLoop);
       } else {
         enemy.alive = false;
@@ -1547,7 +1550,7 @@
 
         if(state.starTimer > 0){
           // invincible star: defeat enemy on any contact with death animation
-          playEnemyDeathAnimation(en);
+          playEnemyDeathAnimation(en, state.facing);
           state.score += 200;
           updateHud();
           playStompSound();
@@ -1590,7 +1593,7 @@
           playStompSound();
         } else if(en.kind === 'goomba' && isStomp){
           // stomp goomba with death animation
-          playEnemyDeathAnimation(en);
+          playEnemyDeathAnimation(en, state.facing);
           state.vel.y = STOMP_BOUNCE;
           state.score += 200;
           updateHud();
