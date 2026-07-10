@@ -255,7 +255,7 @@
     mushroomCap: 0xE40000,
     mushroomSpot: 0xFCFCFC,
     mushroomStem: 0xFCD8A0,
-    oneUpCap: 0x00A800,
+    oneUpCap: 0x00D8E8,
     starCore: 0xFCD800,
     starGlow: 0xFCE870,
     turtleShell: 0x30B840,
@@ -313,11 +313,6 @@
   scene.add(lavaLight);
 
   function mat(color){ return new THREE.MeshLambertMaterial({ color: color }); }
-
-  // ============ STARS / HILLS ============
-
-
-
 
   // ============ LEVEL STATE ============
   let platforms = [];
@@ -711,15 +706,16 @@
         const kind = Math.random() < 0.4 ? 'turtle' : 'goomba';
         addEnemy(curX, curY+0.5, curZ, 'x', curX-margin, curX+margin, kind);
       }
-      // power-up items: mushroom (common-ish), star (rare), shell (rare), 1-up (rarest)
+      // power-up items: mushroom (common-ish), star (rare), shell (rare), 1-up (rarest, rolled independently so it isn't buried behind the others)
       if(i > 0 && Math.random() < 0.16){
         addItem('mushroom', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
       } else if(i > 2 && Math.random() < 0.07){
         addItem('star', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
       } else if(i > 2 && Math.random() < 0.06){
         addItem('shell', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
-      } else if(i > 2 && Math.random() < 0.045){
-        addItem('oneup', curX + (Math.random()-0.5)*1.2, curY + 1.1, curZ + (Math.random()-0.5)*1.2);
+      }
+      if(i > 2 && Math.random() < 0.05){
+        addItem('oneup', curX + (Math.random()-0.5)*1.2, curY + 1.4, curZ + (Math.random()-0.5)*1.2);
       }
     }
 
@@ -979,10 +975,11 @@
   const playStompSound = ()=>beep(200,80,0.2,0.09);
   const playHurtSound = ()=>beep(150,60,0.3,0.09);
   const playFireSound = ()=>beep(700,300,0.12,0.07);
+  const play1upSound = ()=>{ beep(760,1200,0.14,0.09); setTimeout(()=>beep(1200,1800,0.18,0.09), 120); };
 
   // ============ GAME FLOW ============
   const TITLE_HTML = `<h1>SUPER<br>BOX BROTHERS 3D</h1>
-    <p>コインを集めてゴールの旗を目指せ！<br>敵をふんで倒そう。穴に落ちたり敵に当たるとライフが減るよ。<br>キノコで大きくなる、1UPキノコでライフ+1、スターで無敵に！<br>甲羅アイテムで1回だけ攻撃をブロック。歩く亀を踏むと甲羅になって転がるよ。<br>転がる甲羅がはてなブロックに当たるとレンガブロックに変わる。<br>ファイアーフラワーを取るとファイアマリオに！Fキー/FIREボタンでファイアボール発射！</p>`;
+    <p>コインを集めてゴールの旗を目指せ！<br>敵をふんで倒そう。穴に落ちたり敵に当たるとライフが減るよ。<br>キノコで大きくなる、1UPキノコ(水色)でライフ+1、スターで無敵に！<br>甲羅アイテムで1回だけ攻撃をブロック。歩く亀を踏むと甲羅になって転がるよ。<br>転がる甲羅がはてなブロックに当たるとレンガブロックに変わる。<br>ファイアーフラワーを取るとファイアマリオに！Fキー/FIREボタンでファイアボール発射！</p>`;
 
   // Generic menu renderer: shows arbitrary HTML plus a stack of buttons.
   // buttons: [{ label, className (optional), onClick }]
@@ -1655,6 +1652,8 @@
         } else if(it.type === 'oneup'){
           state.lives += 1;
           state.score += 500;
+          showBanner('1UP!');
+          play1upSound();
         } else if(it.type === 'star'){
           state.starTimer = 600;
           state.score += 200;
@@ -1671,7 +1670,7 @@
           state.score += 300;
         }
         updateHud();
-        playCoinSound();
+        if(it.type !== 'oneup') playCoinSound();
       }
     }
 
